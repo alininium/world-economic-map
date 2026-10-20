@@ -47,6 +47,7 @@ npm run data:refresh macro        # World Bank, IMF and currencies
 npm run data:refresh trade        # UN Comtrade (needs COMTRADE_API_KEY)
 npm run data:refresh resources    # energy, USGS minerals, FAOSTAT crops
 npm run data:refresh chains       # validate and publish the curated chain notes
+npm run data:refresh briefs       # validate and publish the country briefs
 npm run data:refresh -- --cached  # reuse earlier downloads from pipeline/.cache/
 ```
 
@@ -118,6 +119,8 @@ data/              generated, versioned datasets the app reads
   commodities and production chains.
 - **Compare:** "+ Compare" in a country's panel adds it to the comparison tray, up to four
   countries. "Compare" opens a side-by-side table.
+- **Read the brief:** each country panel opens with "Economy at a glance", a short summary of
+  what is most notable about the economy, with its sources.
 - **Share a view:** the URL holds the selected country (`#FRA`), the map mode
   (`?metric=`, `?commodity=&measure=`, `?chain=&stage=`) and the comparison (`?compare=`).
 
@@ -309,6 +312,28 @@ country panel lists the country's notes and its net position in each stage.
   no code of their own, re-exports inflate trading hubs, and design and IP leave no customs
   trace at all (the semiconductor "Design, IP and tools" stage has notes only).
 
+## Country briefs
+
+Every country and territory has a short brief (2–4 sentences) on what is most notable about its
+economy. The briefs are written by hand in `pipeline/briefs/briefs.source.json` and published by
+`npm run data:refresh briefs`, which rejects unknown countries, duplicates, briefs over 120
+words and briefs without sources.
+
+How they were written:
+
+- **Figures** come only from this project's datasets (with their year) or from a cited source.
+  A brief cites each dataset it uses (`data:worldbank`, `data:comtrade`, …).
+- **Other claims** (for example "tourism is the main industry" or "an offshore financial
+  centre") cite a peer-reviewed paper or an institutional report: IMF, World Bank, OECD,
+  central banks or statistics offices. Claims that could not be sourced were left out, so
+  briefs for small or data-poor places are short.
+- **Review:** each brief was checked against the datasets and its sources by a second pass,
+  which corrected or removed what it could not confirm.
+
+Limits: the briefs are a snapshot written in October 2026, while the data refreshes. After a
+refresh, a brief's figures can differ from the panel's; the brief keeps the year it quotes. Many
+source checks relied on search excerpts of the documents rather than full-text reading.
+
 ## Data status
 
 Included now, all fetched from the sources below by the **Refresh data** workflow on
@@ -321,6 +346,7 @@ Included now, all fetched from the sources below by the **Refresh data** workflo
 - USGS minerals (Mineral Commodity Summaries 2025, data year 2024)
 - FAOSTAT crop production (data year 2024)
 - the curated production-chain notes
+- the country briefs (237, citing 206 sources plus the datasets above)
 - UN Comtrade goods trade: 169 reporters, latest year within three years (mostly 2025), plus
   trade for each tracked commodity and production-chain stage
 
@@ -362,6 +388,7 @@ MVP:
 6. ✅ Production chains (cited notes + trade-derived roles)
 7. ✅ Comparison mode, accessibility, performance
 8. ✅ README, tests, and a GitHub workflow to refresh data (no deployment: local use)
+9. ✅ Country briefs: a cited "Economy at a glance" summary for every country
 
 ## Known gaps and limitations
 

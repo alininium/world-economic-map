@@ -2,6 +2,19 @@
   "generatedAt": "2026-10-20",
   "datasets": [
     {
+      "path": "briefs/briefs.json",
+      "meta": {
+        "id": "briefs",
+        "title": "Country economy briefs",
+        "source": "Written from this project's datasets and cited literature; each brief lists its sources",
+        "sourceUrl": "https://github.com/alininium/world-economic-map/blob/main/pipeline/briefs/briefs.source.json",
+        "license": "Briefs: project text; cited works belong to their authors",
+        "retrievedAt": "2026-10-20",
+        "dataYear": null,
+        "notes": "237 briefs from 206 sources plus the project's datasets. Figures are as of the years stated in each brief."
+      }
+    },
+    {
       "path": "chains/notes.json",
       "meta": {
         "id": "chain-notes",

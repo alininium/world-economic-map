@@ -1,3 +1,4 @@
+import { CHAIN_FILES, type ChainNote, type ChainTradeTable } from '../../shared/chains';
 import { RESOURCE_FILES, type ResourceTable } from '../../shared/commodities';
 import {
   WB_HISTORY_PATH,
@@ -39,6 +40,8 @@ export interface AppData {
   currencies: Dataset<CurrencyTable> | null;
   /** Resource source files that have been produced, in RESOURCE_FILES order. */
   resources: Dataset<ResourceTable>[];
+  chainNotes: Dataset<ChainNote[]> | null;
+  chainTrade: Dataset<ChainTradeTable> | null;
 }
 
 export async function loadAppData(): Promise<AppData> {
@@ -48,13 +51,15 @@ export async function loadAppData(): Promise<AppData> {
     getJson<Topology>('geo/countries.topo.json'),
   ]);
   const manifest = await getJson<Manifest>('manifest.json');
-  const [[countries, topo], worldbank, imf, comtrade, currencies, ...resources] =
+  const [[countries, topo], worldbank, imf, comtrade, currencies, chainNotes, chainTrade, ...resources] =
     await Promise.all([
       required,
       getListed<SeriesTable>(manifest, 'macro/worldbank.json'),
       getListed<SeriesTable>(manifest, 'macro/imf.json'),
       getListed<SeriesTable>(manifest, TRADE_SUMMARY_PATH),
       getListed<CurrencyTable>(manifest, 'currencies.json'),
+      getListed<ChainNote[]>(manifest, CHAIN_FILES.notes),
+      getListed<ChainTradeTable>(manifest, CHAIN_FILES.trade),
       ...Object.values(RESOURCE_FILES).map((p) => getListed<ResourceTable>(manifest, p)),
     ]);
   const macro: AppData['macro'] = {};
@@ -67,6 +72,8 @@ export async function loadAppData(): Promise<AppData> {
     topo,
     macro,
     currencies,
+    chainNotes,
+    chainTrade,
     resources: resources.filter((r): r is Dataset<ResourceTable> => r !== null),
   };
 }

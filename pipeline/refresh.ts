@@ -4,6 +4,7 @@
  * A failing step is reported and the others still run; the exit code is non-zero if any failed.
  */
 import { runGeo } from './geo/build';
+import { runChainNotes } from './chains/notes';
 import { loadEnv } from './lib/env';
 import { setUseCache } from './lib/fetch';
 import { runCurrencies } from './macro/currencies';
@@ -28,6 +29,7 @@ const STEPS: Record<string, Step> = {
   energy: { run: runEnergy },
   usgs: { run: runUsgs },
   fao: { run: runFao },
+  chains: { run: runChainNotes },
   trade: { run: runComtrade, needs: 'COMTRADE_API_KEY' },
 };
 

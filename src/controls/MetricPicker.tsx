@@ -1,10 +1,12 @@
+import { CHAINS } from '../../shared/chains';
 import { CATEGORY_LABELS, COMMODITIES, type CommodityCategory } from '../../shared/commodities';
 import { INDICATORS, type IndicatorKey } from '../../shared/indicators';
 
 export type MapMode =
   | { kind: 'political' }
   | { kind: 'indicator'; key: IndicatorKey }
-  | { kind: 'commodity'; id: string };
+  | { kind: 'commodity'; id: string }
+  | { kind: 'chain'; id: string };
 
 interface Props {
   value: MapMode;
@@ -12,21 +14,30 @@ interface Props {
   available: ReadonlySet<IndicatorKey>;
   /** Commodities with at least one measure loaded. */
   commodities: ReadonlySet<string>;
+  /** Chain notes or chain trade are loaded. */
+  chainsAvailable: boolean;
   onChange: (mode: MapMode) => void;
 }
 
 const encode = (m: MapMode) =>
-  m.kind === 'indicator' ? `i:${m.key}` : m.kind === 'commodity' ? `c:${m.id}` : '';
+  m.kind === 'indicator'
+    ? `i:${m.key}`
+    : m.kind === 'commodity'
+      ? `c:${m.id}`
+      : m.kind === 'chain'
+        ? `p:${m.id}`
+        : '';
 
 function decode(v: string): MapMode {
   if (v.startsWith('i:')) return { kind: 'indicator', key: v.slice(2) as IndicatorKey };
   if (v.startsWith('c:')) return { kind: 'commodity', id: v.slice(2) };
+  if (v.startsWith('p:')) return { kind: 'chain', id: v.slice(2) };
   return { kind: 'political' };
 }
 
 const CATEGORIES = Object.keys(CATEGORY_LABELS) as CommodityCategory[];
 
-export function MetricPicker({ value, available, commodities, onChange }: Props) {
+export function MetricPicker({ value, available, commodities, chainsAvailable, onChange }: Props) {
   return (
     <label className="metric-picker">
       <span className="visually-hidden">Colour countries by</span>
@@ -50,6 +61,13 @@ export function MetricPicker({ value, available, commodities, onChange }: Props)
             ))}
           </optgroup>
         ))}
+        <optgroup label="Production chains">
+          {CHAINS.map((c) => (
+            <option key={c.id} value={`p:${c.id}`} disabled={!chainsAvailable}>
+              {c.label}
+            </option>
+          ))}
+        </optgroup>
       </select>
     </label>
   );

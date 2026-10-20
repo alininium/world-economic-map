@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildProfile,
+  chainTrade,
+  pairedTrade,
   byReporter,
   hhi,
   hsNames,
@@ -173,5 +175,52 @@ describe('byReporter', () => {
     ]);
     expect(groups.get(1)).toHaveLength(2);
     expect(groups.get(2)).toHaveLength(1);
+  });
+});
+
+describe('chainTrade', () => {
+  it('sums each stage’s HS codes per reporter and skips stages without codes', () => {
+    const t = chainTrade(
+      [
+        row({ cmdCode: '8542', primaryValue: 50, reporterCode: 410 }),
+        row({ cmdCode: '8542', primaryValue: 30, flowCode: 'M', reporterCode: 156 }),
+        row({ cmdCode: '8471', primaryValue: 10, reporterCode: 156 }),
+        row({ cmdCode: '8517', primaryValue: 5, reporterCode: 156 }),
+      ],
+      new Map([
+        [410, 'KOR'],
+        [156, 'CHN'],
+      ]),
+    );
+    expect(t.semiconductors?.chips?.exports).toEqual({ KOR: { value: 50, year: 2024 } });
+    expect(t.semiconductors?.chips?.imports).toEqual({ CHN: { value: 30, year: 2024 } });
+    expect(t.semiconductors?.devices?.exports).toEqual({ CHN: { value: 15, year: 2024 } });
+    expect(t.semiconductors?.design).toBeUndefined();
+  });
+});
+
+describe('pairedTrade', () => {
+  it('uses the latest year in which both flows were reported', () => {
+    const t = pairedTrade(
+      [
+        row({ cmdCode: '8542', primaryValue: 50, period: '2024' }),
+        row({ cmdCode: '8542', primaryValue: 40, period: '2023' }),
+        row({ cmdCode: '8542', primaryValue: 30, period: '2023', flowCode: 'M' }),
+      ],
+      ['8542'],
+      new Map([[842, 'USA']]),
+    );
+    expect(t.exports.USA).toEqual({ value: 40, year: 2023 });
+    expect(t.imports.USA).toEqual({ value: 30, year: 2023 });
+  });
+
+  it('keeps a lone flow at its latest year', () => {
+    const t = pairedTrade(
+      [row({ cmdCode: '8542', primaryValue: 50, period: '2024' })],
+      ['8542'],
+      new Map([[842, 'USA']]),
+    );
+    expect(t.exports.USA).toEqual({ value: 50, year: 2024 });
+    expect(t.imports).toEqual({});
   });
 });

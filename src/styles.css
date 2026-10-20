@@ -577,3 +577,70 @@ body,
     display: none;
   }
 }
+
+.chain-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+
+.chain-stages button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 0.78rem;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.chain-stages button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.chain-stages button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.legend .chain-notes,
+.chain-notes {
+  display: block;
+  margin: 4px 0 8px;
+  padding-left: 16px;
+  font-size: 0.8rem;
+}
+
+.legend .chain-notes li,
+.chain-notes li {
+  display: list-item;
+  margin-bottom: 6px;
+}
+
+.citations {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.citations a {
+  color: inherit;
+}
+
+.card-h {
+  margin: 10px 0 2px;
+  font-size: 0.8rem;
+}
+
+.net-lists {
+  display: grid;
+  gap: 4px;
+}

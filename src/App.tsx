@@ -1,11 +1,14 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CHAIN_BY_ID } from '../shared/chains';
 import { COMMODITY_BY_ID, MEASURE_LABELS, MEASURES, type Measure } from '../shared/commodities';
 import { INDICATOR_BY_KEY, INDICATORS, type IndicatorKey } from '../shared/indicators';
 import { SOVEREIGN_STATUSES, STATUS_LABELS } from '../shared/status';
 import type { TradeProfile } from '../shared/trade';
 import type { Country } from '../shared/types';
+import { ChainCard } from './controls/ChainCard';
 import { CommodityCard } from './controls/CommodityCard';
 import { MetricPicker, type MapMode } from './controls/MetricPicker';
+import { countryChainTrade, netTrade, notesAbout, notesFor, type NetTrade } from './data/chains';
 import { loadAppData, loadTradeProfile, metaFor, type AppData } from './data/load';
 import { buildMacroIndex, SOURCE_LABELS } from './data/macro';
 import { buildResourceIndex, countryResources } from './data/resources';
@@ -16,6 +19,7 @@ import { toMapFeatures } from './map/geometry';
 import { Legend } from './map/Legend';
 import { paletteFor } from './map/palette';
 import { WorldMap, type FocusRequest } from './map/WorldMap';
+import { ChainSection } from './panel/ChainSection';
 import { CountryPanel } from './panel/CountryPanel';
 import { MacroSnapshot } from './panel/MacroSnapshot';
 import { ResourcesSection } from './panel/ResourcesSection';
@@ -47,7 +51,13 @@ function modeFromUrl(): { mode: MapMode; measure: Measure } {
   }
   if (c && Object.hasOwn(COMMODITY_BY_ID, c))
     return { mode: { kind: 'commodity', id: c }, measure };
+  const ch = q.get('chain');
+  if (ch && Object.hasOwn(CHAIN_BY_ID, ch)) return { mode: { kind: 'chain', id: ch }, measure };
   return { mode: { kind: 'political' }, measure };
+}
+
+function stageFromUrl(): string | null {
+  return new URLSearchParams(window.location.search).get('stage');
 }
 
 /** Shown in the tooltip when no metric is selected. */
@@ -59,6 +69,7 @@ export function App() {
   const [selectedId, setSelectedId] = useState<string | null>(idFromHash);
   const [mode, setMode] = useState<MapMode>(() => modeFromUrl().mode);
   const [measure, setMeasure] = useState<Measure>(() => modeFromUrl().measure);
+  const [chainStage, setChainStage] = useState<string | null>(stageFromUrl);
   const [focus, setFocus] = useState<FocusRequest | null>(() => {
     const id = idFromHash();
     return id ? { id, nonce: 0 } : null;
@@ -82,15 +93,20 @@ export function App() {
   // Keep the selection (hash) and map mode (query) in the URL so a view can be bookmarked.
   useEffect(() => {
     const url = new URL(window.location.href);
-    for (const k of ['metric', 'commodity', 'measure']) url.searchParams.delete(k);
+    for (const k of ['metric', 'commodity', 'measure', 'chain', 'stage'])
+      url.searchParams.delete(k);
     if (mode.kind === 'indicator') url.searchParams.set('metric', mode.key);
     if (mode.kind === 'commodity') {
       url.searchParams.set('commodity', mode.id);
       url.searchParams.set('measure', measure);
     }
+    if (mode.kind === 'chain') {
+      url.searchParams.set('chain', mode.id);
+      if (chainStage) url.searchParams.set('stage', chainStage);
+    }
     url.hash = selectedId ? `#${selectedId}` : '';
     if (url.href !== window.location.href) history.replaceState(null, '', url);
-  }, [selectedId, mode, measure]);
+  }, [selectedId, mode, measure, chainStage]);
 
   const focusOn = useCallback((id: string) => {
     setFocus((f) => ({ id, nonce: (f?.nonce ?? 0) + 1 }));
@@ -169,6 +185,38 @@ export function App() {
     return { ...classify(entries, isRanked, 'sequential', palette), series };
   }, [activeCommodity, activeMeasure, resources, isRanked, palette]);
 
+  const chainNotes = useMemo(() => data?.chainNotes?.data ?? [], [data]);
+  const chainTrade = data?.chainTrade?.data ?? null;
+  const chainsAvailable = !!(data?.chainNotes || data?.chainTrade);
+  const activeChain = mode.kind === 'chain' && chainsAvailable ? mode.id : null;
+  const activeStage = activeChain
+    ? (
+        CHAIN_BY_ID[activeChain]!.stages.find((s) => s.id === chainStage) ??
+        CHAIN_BY_ID[activeChain]!.stages[0]!
+      ).id
+    : null;
+  const chainMap = useMemo(() => {
+    if (!activeChain || !activeStage) return null;
+    const stageTrade = chainTrade?.[activeChain]?.[activeStage];
+    if (stageTrade) {
+      const all = netTrade(stageTrade);
+      const byCountry = new Map<string, NetTrade>(all.map((r) => [r.id, r]));
+      const entries = all.map((r) => [r.id, r.net] as const);
+      return {
+        ...classify(entries, isRanked, 'diverging', palette),
+        byCountry,
+        ranked: all.filter((r) => isRanked(r.id)),
+      };
+    }
+    // Without trade data, show the countries the cited notes name for this stage, by role.
+    const colors: Record<string, string> = {};
+    for (const n of notesFor(chainNotes, activeChain, activeStage)) {
+      for (const c of n.dependents ?? []) colors[c] ??= palette.flowImports;
+      for (const c of n.countries) colors[c] = palette.flowExports;
+    }
+    return { bins: null, colors, byCountry: null, ranked: null };
+  }, [activeChain, activeStage, chainTrade, chainNotes, isRanked, palette]);
+
   const choropleth = useMemo(() => {
     if (!activeMetric) return null;
     const def = INDICATOR_BY_KEY[activeMetric];
@@ -195,6 +243,10 @@ export function App() {
   }, [data, selectedId, tradeAttempt]);
 
   const select = useCallback((id: string | null) => setSelectedId(id), []);
+  const openChain = useCallback((id: string, stage: string | null) => {
+    setMode({ kind: 'chain', id });
+    setChainStage(stage);
+  }, []);
   /** Shows a commodity, starting from production; activeMeasure falls back to what it has. */
   const openCommodity = useCallback((id: string) => {
     setMode({ kind: 'commodity', id });
@@ -232,6 +284,27 @@ export function App() {
         </>
       );
     }
+    if (activeChain && activeStage && chainMap) {
+      const stage = CHAIN_BY_ID[activeChain]!.stages.find((s) => s.id === activeStage)!;
+      const r = chainMap.byCountry?.get(c.id);
+      const stageNotes = notesFor(chainNotes, activeChain, activeStage);
+      const supplier = stageNotes.some((n) => n.countries.includes(c.id));
+      const dependent = stageNotes.some((n) => n.dependents?.includes(c.id));
+      return (
+        <>
+          <strong>{c.name}</strong>
+          <span>{stage.label}</span>
+          {r && (
+            <span>
+              {r.net >= 0 ? 'Net exporter' : 'Net importer'} {formatValue(Math.abs(r.net), 'usd')} (
+              {r.year})
+            </span>
+          )}
+          {supplier && <span>Named in a cited note as producer or supplier</span>}
+          {dependent && <span>Named in a cited note as relying on others</span>}
+        </>
+      );
+    }
     const key = activeMetric ?? HEADLINE;
     const def = INDICATOR_BY_KEY[key];
     const fig = macro[key][c.id];
@@ -254,6 +327,10 @@ export function App() {
   const selected = selectedId ? byId.get(selectedId) : undefined;
   const boundariesMeta = data && metaFor(data.manifest, 'geo/countries.topo.json');
   const tradeState = trade && trade.id === selectedId ? trade : undefined;
+  const chainRoles = useMemo(
+    () => (chainTrade && selectedId ? countryChainTrade(chainTrade, selectedId) : []),
+    [chainTrade, selectedId],
+  );
   const tradeProfile = tradeState?.profile;
   const flows = useMemo(
     () => (selected && tradeProfile && showFlows ? flowLines(selected, tradeProfile, byId) : null),
@@ -272,11 +349,20 @@ export function App() {
                 ? { kind: 'indicator', key: activeMetric }
                 : activeCommodity
                   ? { kind: 'commodity', id: activeCommodity }
-                  : { kind: 'political' }
+                  : activeChain
+                    ? { kind: 'chain', id: activeChain }
+                    : { kind: 'political' }
             }
             available={available}
             commodities={commoditiesLoaded}
-            onChange={(m) => (m.kind === 'commodity' ? openCommodity(m.id) : setMode(m))}
+            chainsAvailable={chainsAvailable}
+            onChange={(m) =>
+              m.kind === 'commodity'
+                ? openCommodity(m.id)
+                : m.kind === 'chain'
+                  ? openChain(m.id, null)
+                  : setMode(m)
+            }
           />
         )}
       </header>
@@ -295,7 +381,7 @@ export function App() {
           selectedId={selectedId}
           focus={focus}
           darkMode={darkMode}
-          fillColors={commodityMap?.colors ?? choropleth?.colors ?? null}
+          fillColors={commodityMap?.colors ?? chainMap?.colors ?? choropleth?.colors ?? null}
           flows={flows}
           getObscured={getObscured}
           onSelect={select}
@@ -313,6 +399,22 @@ export function App() {
           bins={commodityMap?.bins ?? []}
           noDataColor={palette.noData}
           onMeasure={setMeasure}
+          onSelectCountry={selectAndFocus}
+        />
+      )}
+
+      {activeChain && activeStage && (
+        <ChainCard
+          chain={activeChain}
+          stage={activeStage}
+          notes={chainNotes}
+          ranked={chainMap?.ranked ?? null}
+          countries={byId}
+          bins={chainMap?.bins ?? null}
+          supplierColor={palette.flowExports}
+          dependentColor={palette.flowImports}
+          noDataColor={palette.noData}
+          onStage={setChainStage}
           onSelectCountry={selectAndFocus}
         />
       )}
@@ -358,6 +460,14 @@ export function App() {
             rows={countryResources(resources, selected.id, isRanked)}
             anyLoaded={commoditiesLoaded.size > 0}
             onOpenCommodity={openCommodity}
+          />
+          <ChainSection
+            countryId={selected.id}
+            notes={notesAbout(chainNotes, selected.id)}
+            roles={chainRoles}
+            notesLoaded={!!data.chainNotes}
+            tradeLoaded={!!chainTrade}
+            onOpenChain={openChain}
           />
           {tradeState === undefined ? (
             <p className="muted small">Loading trade…</p>

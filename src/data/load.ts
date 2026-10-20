@@ -1,5 +1,11 @@
 import { RESOURCE_FILES, type ResourceTable } from '../../shared/commodities';
-import type { CurrencyTable, SeriesTable, SourceId } from '../../shared/indicators';
+import {
+  WB_HISTORY_PATH,
+  type CurrencyTable,
+  type HistoryTable,
+  type SeriesTable,
+  type SourceId,
+} from '../../shared/indicators';
 import { TRADE_SUMMARY_PATH, tradeProfilePath, type TradeProfile } from '../../shared/trade';
 import type { Country, Dataset, DatasetMeta, Manifest } from '../../shared/types';
 import type { Topology } from 'topojson-specification';
@@ -85,4 +91,12 @@ export async function loadTradeProfile(
   // The dev server answers unknown paths with index.html instead of a 404.
   if (!res.headers.get('content-type')?.includes('json')) return null;
   return (await res.json()) as TradeProfile;
+}
+
+let historyRequest: Promise<Dataset<HistoryTable> | null> | null = null;
+
+/** Yearly World Bank series (FDI), fetched once on first use; null until the pipeline made it. */
+export function loadHistory(manifest: Manifest): Promise<Dataset<HistoryTable> | null> {
+  historyRequest ??= getListed<HistoryTable>(manifest, WB_HISTORY_PATH);
+  return historyRequest;
 }

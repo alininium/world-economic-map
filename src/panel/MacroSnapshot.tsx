@@ -22,7 +22,7 @@ export function MacroSnapshot({ country, macro, loaded, currencies, currencyMeta
       <h3>Macro snapshot</h3>
       <table className="figures">
         <tbody>
-          {INDICATORS.map((def) => {
+          {INDICATORS.filter((d) => (d.section ?? 'macro') === 'macro').map((def) => {
             const fig = macro[def.key][country.id];
             return (
               <tr key={def.key}>
@@ -81,7 +81,7 @@ export function MacroSnapshot({ country, macro, loaded, currencies, currencyMeta
           </tr>
         </tbody>
       </table>
-      {loaded.size < INDICATORS.length && (
+      {INDICATORS.some((d) => !loaded.has(d.key)) && (
         <p className="note">
           Some sources have not been downloaded yet. Run <code>npm run data:refresh macro</code>.
         </p>

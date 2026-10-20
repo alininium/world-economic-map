@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { currenciesFromRows, parseCsv } from './currencies';
 import { parseDataMapper } from './imf';
-import { latestByCountry } from './observations';
+import { historyByCountry, latestByCountry } from './observations';
 import { parseWbPage } from './worldbank';
 
 // Sample responses shaped like the real APIs; values are made up for the tests only.
@@ -92,6 +92,29 @@ describe('currencies', () => {
       AAA: [
         { code: 'VES', name: 'Bolívar Soberano' },
         { code: 'VED', name: 'Bolívar Soberano' },
+      ],
+    });
+  });
+});
+
+describe('historyByCountry', () => {
+  it('keeps the window of non-missing years, oldest first', () => {
+    const h = historyByCountry(
+      [
+        { id: 'AAA', year: 2024, value: 3 },
+        { id: 'AAA', year: 2014, value: 9 },
+        { id: 'AAA', year: 2020, value: null },
+        { id: 'AAA', year: 2018, value: -1 },
+        { id: 'WLD', year: 2024, value: 5 },
+      ],
+      new Set(['AAA']),
+      2016,
+      2026,
+    );
+    expect(h).toEqual({
+      AAA: [
+        { value: -1, year: 2018 },
+        { value: 3, year: 2024 },
       ],
     });
   });

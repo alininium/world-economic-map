@@ -1,8 +1,14 @@
-import { seriesFor, type SeriesTable } from '../../shared/indicators';
+import {
+  INDICATORS,
+  seriesFor,
+  WB_HISTORY_PATH,
+  type HistoryTable,
+  type SeriesTable,
+} from '../../shared/indicators';
 import type { DatasetMeta } from '../../shared/types';
 import { cachedFetch } from '../lib/fetch';
 import { readCountryIds, writeDataset } from '../lib/write';
-import { latestByCountry, type RawPoint } from './observations';
+import { historyByCountry, latestByCountry, type RawPoint } from './observations';
 
 const API = 'https://api.worldbank.org/v2';
 /** How far back to look for a country's latest value. */
@@ -59,12 +65,20 @@ export async function runWorldBank(): Promise<void> {
   const ids = await readCountryIds();
   const to = new Date().getUTCFullYear();
   const table: SeriesTable = {};
+  const history: HistoryTable = {};
+  const historyCodes = new Set(
+    INDICATORS.filter((d) => d.history).flatMap((d) =>
+      d.series.filter((s) => s.source === 'worldbank').map((s) => s.code),
+    ),
+  );
   const updated: string[] = [];
   let retrievedAt = '';
   for (const { code } of seriesFor('worldbank')) {
     console.log(`  ${code}`);
     const res = await fetchIndicator(code, to - YEARS_BACK, to);
     table[code] = latestByCountry(res.points, ids, to);
+    if (historyCodes.has(code))
+      history[code] = historyByCountry(res.points, ids, to - YEARS_BACK, to);
     if (res.lastUpdated) updated.push(`${code} ${res.lastUpdated}`);
     if (res.retrievedAt > retrievedAt) retrievedAt = res.retrievedAt;
   }
@@ -80,4 +94,9 @@ export async function runWorldBank(): Promise<void> {
     notes: `Latest available year per country within ${YEARS_BACK} years. Source last updated: ${updated.join('; ')}.`,
   };
   await writeDataset('macro/worldbank.json', meta, table);
+  await writeDataset(
+    WB_HISTORY_PATH,
+    { ...meta, id: 'worldbank-history', title: 'World Bank yearly series (FDI)' },
+    history,
+  );
 }

@@ -20,13 +20,16 @@ export interface MapPalette {
   negative: string[];
   /** Closest to zero → most positive. */
   positive: string[];
+  /** Trade-flow lines: categorical slots 1 (blue) and 2 (orange) of the reference palette. */
+  flowExports: string;
+  flowImports: string;
 }
 
 const light: MapPalette = {
   ocean: '#fbfbf9',
   border: '#fbfbf9',
-  hover: '#0b0b0b',
-  selected: '#d95926',
+  hover: '#7d7c76',
+  selected: '#0b0b0b',
   hatch: '#7d7c76',
   noData: '#d6d4ce',
   status: {
@@ -40,13 +43,15 @@ const light: MapPalette = {
   sequential: ['#86b6ef', '#5598e7', '#2a78d6', '#1c5cab', '#0d366b'],
   negative: ['#9a2a28', '#d0504c', '#f0928d'],
   positive: ['#86b6ef', '#2a78d6', '#104281'],
+  flowExports: '#2a78d6',
+  flowImports: '#eb6834',
 };
 
 const dark: MapPalette = {
   ocean: '#151514',
   border: '#151514',
-  hover: '#f0efec',
-  selected: '#ff8a4c',
+  hover: '#a3a29b',
+  selected: '#f0efec',
   hatch: '#8a8983',
   noData: '#45443f',
   status: {
@@ -60,6 +65,8 @@ const dark: MapPalette = {
   sequential: ['#184f95', '#256abf', '#3987e5', '#86b6ef', '#cde2fb'],
   negative: ['#f0928d', '#d0504c', '#9a2a28'],
   positive: ['#1c5cab', '#3987e5', '#86b6ef'],
+  flowExports: '#3987e5',
+  flowImports: '#d95926',
 };
 
 export function paletteFor(darkMode: boolean): MapPalette {

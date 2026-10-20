@@ -42,5 +42,8 @@ describe('compact and formatBreak', () => {
     expect(formatBreak(2.5e11, 'usd')).toBe('$250 bn');
     expect(formatBreak(-3.25, 'percent')).toBe('−3.25%');
     expect(formatBreak(0, 'percent')).toBe('0%');
+    expect(formatBreak(0.0149, 'index')).toBe('0.0149');
+    expect(formatBreak(0.0151, 'index')).toBe('0.0151');
+    expect(formatBreak(0.012, 'index')).toBe('0.012');
   });
 });

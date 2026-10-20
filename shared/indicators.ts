@@ -18,14 +18,15 @@ export type IndicatorKey =
   | 'govDebt'
   | 'population'
   | 'tradeBalance'
+  | 'exportConcentration'
   | 'fdiInflows';
 
-export type Unit = 'usd' | 'intl_usd' | 'percent' | 'percent_gdp' | 'people';
+export type Unit = 'usd' | 'intl_usd' | 'percent' | 'percent_gdp' | 'people' | 'index';
 
 /** How a metric is coloured: magnitude (one hue) or signed around zero (two hues). */
 export type ScaleKind = 'sequential' | 'diverging';
 
-export type SourceId = 'worldbank' | 'imf';
+export type SourceId = 'worldbank' | 'imf' | 'comtrade';
 
 export interface SeriesRef {
   source: SourceId;
@@ -140,6 +141,16 @@ export const INDICATORS: readonly IndicatorDef[] = [
     choropleth: true,
     series: [wb('NE.RSB.GNFS.CD')],
     description: 'Exports minus imports of goods and services, current US dollars.',
+  },
+  {
+    key: 'exportConcentration',
+    label: 'Export concentration',
+    unit: 'index',
+    scaleKind: 'sequential',
+    choropleth: true,
+    series: [{ source: 'comtrade', code: 'EXPORT_HHI_HS4' }],
+    description:
+      'Herfindahl–Hirschman index of export shares across HS 4-digit products, from UN Comtrade: 0 = spread over many products, 1 = a single product. Not normalized, so it differs from UNCTAD’s concentration index.',
   },
   {
     key: 'fdiInflows',

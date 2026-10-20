@@ -1,4 +1,5 @@
 import type { CurrencyTable, SeriesTable, SourceId } from '../../shared/indicators';
+import { TRADE_SUMMARY_PATH, tradeProfilePath, type TradeProfile } from '../../shared/trade';
 import type { Country, Dataset, DatasetMeta, Manifest } from '../../shared/types';
 import type { Topology } from 'topojson-specification';
 
@@ -38,18 +39,38 @@ export async function loadAppData(): Promise<AppData> {
     getJson<Topology>('geo/countries.topo.json'),
   ]);
   const manifest = await getJson<Manifest>('manifest.json');
-  const [[countries, topo], worldbank, imf, currencies] = await Promise.all([
+  const [[countries, topo], worldbank, imf, comtrade, currencies] = await Promise.all([
     required,
     getListed<SeriesTable>(manifest, 'macro/worldbank.json'),
     getListed<SeriesTable>(manifest, 'macro/imf.json'),
+    getListed<SeriesTable>(manifest, TRADE_SUMMARY_PATH),
     getListed<CurrencyTable>(manifest, 'currencies.json'),
   ]);
   const macro: AppData['macro'] = {};
   if (worldbank) macro.worldbank = worldbank;
   if (imf) macro.imf = imf;
+  if (comtrade) macro.comtrade = comtrade;
   return { manifest, countries, topo, macro, currencies };
 }
 
 export function metaFor(manifest: Manifest, relPath: string): DatasetMeta | undefined {
   return manifest.datasets.find((d) => d.path === relPath)?.meta;
+}
+
+/**
+ * Loads one country's trade profile. Resolves to null when the pipeline has produced no
+ * profiles, or none for this country (it did not report to UN Comtrade recently). Rejects on
+ * network or server errors, so the UI can offer a retry instead of claiming there is no data.
+ */
+export async function loadTradeProfile(
+  manifest: Manifest,
+  id: string,
+): Promise<TradeProfile | null> {
+  if (!metaFor(manifest, 'trade/by-country/')) return null;
+  const res = await fetch(`${import.meta.env.BASE_URL}${tradeProfilePath(id)}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  // The dev server answers unknown paths with index.html instead of a 404.
+  if (!res.headers.get('content-type')?.includes('json')) return null;
+  return (await res.json()) as TradeProfile;
 }

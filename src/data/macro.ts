@@ -49,6 +49,7 @@ export function buildMacroIndex(tables: Partial<Record<SourceId, SeriesTable>>):
 export const SOURCE_LABELS: Record<SourceId, string> = {
   worldbank: 'World Bank WDI',
   imf: 'IMF WEO',
+  comtrade: 'UN Comtrade',
 };
 
 /** Link to the series on the source's own site, scoped to the country where the site allows. */
@@ -61,5 +62,6 @@ export function sourceLink(
     const loc = country.iso2 ? `?locations=${country.iso2}` : '';
     return `https://data.worldbank.org/indicator/${code}${loc}`;
   }
+  if (source === 'comtrade') return 'https://comtradeplus.un.org/';
   return `https://www.imf.org/external/datamapper/${code}@WEO/${country.id}`;
 }

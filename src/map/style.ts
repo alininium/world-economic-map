@@ -9,6 +9,7 @@ import type { MapPalette } from './palette';
 
 export const SOURCE_SHAPES = 'countries';
 export const SOURCE_MARKERS = 'markers';
+export const SOURCE_FLOWS = 'flows';
 export const LAYER_FILL = 'country-fill';
 export const LAYER_MARKERS = 'country-markers';
 export const HATCH_IMAGE = 'hatch';
@@ -16,6 +17,8 @@ export const HATCH_IMAGE = 'hatch';
 export const INTERACTIVE_LAYERS = [LAYER_FILL, LAYER_MARKERS];
 
 type ColorExpr = DataDrivenPropertyValueSpecification<string>;
+
+export const EMPTY_FLOWS: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 type SetPaint = Parameters<MapLibreMap['setPaintProperty']>;
 type Paint = Record<string, SetPaint[2]>;
 
@@ -52,6 +55,15 @@ export function layerPaint(p: MapPalette, colors: FillColors): Record<string, Pa
     'country-border': { 'line-color': p.border },
     'country-hover-outline': { 'line-color': p.hover },
     'country-selected-outline': { 'line-color': p.selected },
+    'trade-flows': {
+      'line-color': [
+        'match',
+        ['get', 'flow'],
+        'exports',
+        p.flowExports,
+        p.flowImports,
+      ] as unknown as ColorExpr,
+    },
     [LAYER_MARKERS]: {
       'circle-color': fill,
       'circle-stroke-color': [
@@ -94,6 +106,7 @@ export function buildStyle(
     sources: {
       [SOURCE_SHAPES]: { type: 'geojson', data: features.shapes, promoteId: 'id' },
       [SOURCE_MARKERS]: { type: 'geojson', data: features.markers, promoteId: 'id' },
+      [SOURCE_FLOWS]: { type: 'geojson', data: EMPTY_FLOWS },
     },
     layers: [
       { id: 'ocean', type: 'background', paint: paint.ocean },
@@ -132,6 +145,21 @@ export function buildStyle(
           ...paint['country-selected-outline'],
           'line-width': 2.5,
           'line-opacity': ['case', flag('selected'), 1, 0],
+        },
+      },
+      {
+        id: 'trade-flows',
+        type: 'line',
+        source: SOURCE_FLOWS,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          ...paint['trade-flows'],
+          // 1.5 px for small partners up to 6 px for a partner taking half the trade.
+          'line-width': ['interpolate', ['linear'], ['get', 'share'], 0, 1.5, 0.5, 6],
+          'line-opacity': 0.85,
+          // Import lines run partner → country, so the same offset puts them on the other side
+          // of an export line to the same partner instead of on top of it.
+          'line-offset': 3,
         },
       },
       {

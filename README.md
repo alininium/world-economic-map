@@ -5,8 +5,8 @@ macro indicators, trade, strategic resources, foreign investment and production 
 It is a static site: a data pipeline downloads and normalizes public datasets into versioned
 JSON files under `data/`, and the browser app reads only those files.
 
-> **Status:** milestones 1–2: a clickable world map with search, a choropleth with legend, and a
-> country panel with a macro snapshot. See the [Roadmap](#roadmap) and
+> **Status:** milestones 1–3: a clickable world map with search, a choropleth with legend, and a
+> country panel with a macro snapshot, trade charts and trade-flow lines. See the [Roadmap](#roadmap) and
 > [Data status](#data-status).
 
 ## Running it
@@ -32,10 +32,11 @@ Other scripts:
 ## Refreshing data
 
 ```sh
-cp .env.example .env     # only needed for sources that require a key (later milestones)
+cp .env.example .env     # then add your free UN Comtrade key (needed for the trade step)
 npm run data:refresh     # all steps
 npm run data:refresh geo # one step
 npm run data:refresh macro        # World Bank, IMF and currencies
+npm run data:refresh trade        # UN Comtrade (needs COMTRADE_API_KEY)
 npm run data:refresh -- --cached  # reuse earlier downloads from pipeline/.cache/
 ```
 
@@ -43,6 +44,9 @@ Each step downloads its sources, keeps the raw responses in `pipeline/.cache/` (
 cleans and normalizes them, and writes files to `data/`. Requests to the same host are spaced
 at least one second apart. Rate limiting (429), server errors and network failures are retried
 with exponential backoff; other HTTP errors fail at once.
+
+A full refresh (no step named) skips steps whose API key isn't set and says so. Naming such a
+step explicitly without its key is an error.
 
 If a step fails, for example because a source is unreachable, its existing files in `data/`
 are left untouched, the remaining steps still run, and the command exits non-zero.
@@ -132,25 +136,55 @@ the source too.
   with zero as a class boundary. Grey means no data. The ramps were checked with a palette
   validator (lightness steps, contrast against the ocean) in both light and dark themes.
 
+## Trade
+
+The `trade` step queries the [UN Comtrade](https://comtradeplus.un.org/) v1 API for annual HS
+goods trade as reported by each country. It looks back three years and uses each reporter's
+latest year with reported exports, the same year for both flows.
+
+- **Partners:** total trade by partner country (`cmdCode=TOTAL`).
+- **Products:** HS 4-digit headings traded with the world (`cmdCode=AG4`).
+- **One row per partner:** rows are filtered to `customsCode=C00`, `motCode=0` and
+  `partner2Code=0`, so breakdowns by customs procedure or transport mode aren't double counted.
+- **Numeric codes:** Comtrade codes aren't always ISO numeric (the USA is 842, for example), so
+  reporter, partner and HS codes are resolved through Comtrade's own reference files.
+- **Requests:** reporters are batched, about 70 requests in all, well inside the free tier of
+  500 a day. Requests are spaced one second apart.
+
+Outputs:
+
+- `data/trade/summary.json`: exports and imports totals, plus **export concentration**. This is
+  the Herfindahl–Hirschman index of HS4 export shares (0 = diversified, 1 = one product). It
+  isn't normalized, so it differs from UNCTAD's index. It's available as a choropleth metric.
+- `data/trade/by-country/<ID>.json`: the top 10 products and partners for each flow, with value
+  and share. The app loads a file only when that country is opened.
+
+In the panel, export and import products and partners appear as bar charts, with a table view
+for screen readers and copying. "Show trade flows" draws great-circle lines to the top 5
+export destinations (blue) and import origins (orange) that are countries on the map.
+Comtrade's non-country partners ("Areas, nes", and "Other Asia, nes", the label Comtrade uses
+for Taiwan) appear in the lists, but have no line.
+
 ## Data status
 
-The cloud environment this was built in could not reach the World Bank or IMF APIs, so
-`data/macro/` has not been generated yet and those panel rows read "Source not loaded". No
-placeholder figures were added. Run `npm run data:refresh macro` with network access to fill
-them in.
+The cloud environment this was built in could not reach the World Bank, IMF or UN Comtrade
+APIs, so `data/macro/` and `data/trade/` have not been generated yet. Those panel rows and
+sections say the source is not loaded. No placeholder figures were added. Run
+`npm run data:refresh macro trade` with network access (and a Comtrade key) to fill them in.
 
 ## Data sources
 
-| Data               | Source                                                                                       | License                                |
-| ------------------ | -------------------------------------------------------------------------------------------- | -------------------------------------- |
-| Country boundaries | [Natural Earth](https://www.naturalearthdata.com/) 1:50m Admin 0 – Countries, v5.1.2         | Public domain                          |
-| UN membership list | [United Nations, Member States](https://www.un.org/en/about-us/member-states)                | Reference list                         |
-| Macro indicators   | [World Bank, World Development Indicators](https://data.worldbank.org/) (API v2)             | CC BY 4.0                              |
-| Macro indicators   | [IMF, World Economic Outlook](https://www.imf.org/external/datamapper/) (DataMapper API)     | IMF terms: free reuse with attribution |
-| Currencies         | ISO 4217 (SIX Group) via [datasets/country-codes](https://github.com/datasets/country-codes) | ODC-PDDL-1.0 (compilation)             |
+| Data               | Source                                                                                       | License                                                |
+| ------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Country boundaries | [Natural Earth](https://www.naturalearthdata.com/) 1:50m Admin 0 – Countries, v5.1.2         | Public domain                                          |
+| UN membership list | [United Nations, Member States](https://www.un.org/en/about-us/member-states)                | Reference list                                         |
+| Macro indicators   | [World Bank, World Development Indicators](https://data.worldbank.org/) (API v2)             | CC BY 4.0                                              |
+| Macro indicators   | [IMF, World Economic Outlook](https://www.imf.org/external/datamapper/) (DataMapper API)     | IMF terms: free reuse with attribution                 |
+| Currencies         | ISO 4217 (SIX Group) via [datasets/country-codes](https://github.com/datasets/country-codes) | ODC-PDDL-1.0 (compilation)                             |
+| Goods trade        | [UN Comtrade](https://comtradeplus.un.org/) API v1                                           | UN Comtrade terms: non-commercial use with attribution |
 
-Sources planned for the next milestones: CEPII BACI and UN Comtrade (trade), UNCTAD (FDI), and
-USGS, the Energy Institute, EIA and FAOSTAT (resources).
+Sources planned for the next milestones: UNCTAD and IMF (FDI), and USGS, the Energy Institute,
+EIA and FAOSTAT (resources).
 They will be added here with their licenses as they are integrated.
 
 ## Roadmap
@@ -159,7 +193,7 @@ MVP:
 
 1. ✅ Scaffold, tooling, clickable world map, search, country panel, mobile layout
 2. ✅ Macro indicators pipeline → choropleth with legend, macro snapshot in the panel
-3. Trade: top products and partners, charts, trade-flow lines
+3. ✅ Trade: top products and partners, charts, trade-flow lines
 4. Strategic resources and the commodity view
 5. FDI
 6. Production chains (hybrid of trade-derived roles and curated, cited notes)
@@ -171,6 +205,11 @@ MVP:
   marker for each one.
 - The map uses the Web Mercator projection, so high-latitude countries look larger than they
   are.
+- Trade covers goods only (no services) and depends on countries reporting to Comtrade. Some
+  countries report late or not at all, and those show "No recent report". Mirror data (partner
+  reports) is not used.
+- Flow lines are great circles drawn on a Mercator map, so long routes curve (for example,
+  Brazil to Australia passes near Antarctica).
 - Unemployment mixes two definitions when the IMF fallback is used: the World Bank series is a
   modelled ILO estimate, the IMF's follows national definitions.
 - There are no country labels on the map yet. Names show in the tooltip and in search.

@@ -9,6 +9,9 @@ import { setUseCache } from './lib/fetch';
 import { runCurrencies } from './macro/currencies';
 import { runImf } from './macro/imf';
 import { runWorldBank } from './macro/worldbank';
+import { runEnergy } from './resources/energy';
+import { runFao } from './resources/fao';
+import { runUsgs } from './resources/usgs';
 import { runComtrade } from './trade/comtrade';
 
 interface Step {
@@ -22,12 +25,16 @@ const STEPS: Record<string, Step> = {
   worldbank: { run: runWorldBank },
   imf: { run: runImf },
   currencies: { run: runCurrencies },
+  energy: { run: runEnergy },
+  usgs: { run: runUsgs },
+  fao: { run: runFao },
   trade: { run: runComtrade, needs: 'COMTRADE_API_KEY' },
 };
 
 /** Shorthands for several steps. */
 const GROUPS: Record<string, string[]> = {
   macro: ['worldbank', 'imf', 'currencies'],
+  resources: ['energy', 'usgs', 'fao'],
 };
 
 loadEnv();

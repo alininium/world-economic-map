@@ -6,6 +6,7 @@ export interface NeProps {
   ADM0_A3: string;
   ISO_A3_EH: string;
   ISO_A2_EH: string;
+  ISO_N3_EH: string;
   SOV_A3: string;
   SOVEREIGNT: string;
   NAME_LONG: string;

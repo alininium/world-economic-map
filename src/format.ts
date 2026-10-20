@@ -58,3 +58,16 @@ export function formatBreak(value: number, unit: Unit): string {
   const prefix = unit === 'usd' ? '$' : unit === 'intl_usd' ? 'Int$' : '';
   return `${value < 0 ? '−' : ''}${prefix}${compact(Math.abs(value))}`;
 }
+
+/** Formats a resource quantity in the unit its source publishes (tonnes, TWh, US dollars…). */
+export function formatQuantity(value: number, unit: string): string {
+  if (/dollar/i.test(unit)) return formatValue(value, 'usd');
+  const short = unit
+    .replace(/^metric tons?$/i, 't')
+    .replace(/^tonnes$/i, 't')
+    .replace(/^kilograms?$/i, 'kg');
+  return `${compact(value)} ${short}`;
+}
+
+export const formatShare = (share: number) =>
+  `${(share * 100).toFixed(share < 0.01 ? 2 : share < 0.1 ? 1 : 0)}%`;

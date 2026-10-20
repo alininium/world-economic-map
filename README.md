@@ -5,8 +5,9 @@ macro indicators, trade, strategic resources, foreign investment and production 
 It is a static site: a data pipeline downloads and normalizes public datasets into versioned
 JSON files under `data/`, and the browser app reads only those files.
 
-> **Status:** milestones 1–3: a clickable world map with search, a choropleth with legend, and a
-> country panel with a macro snapshot, trade charts and trade-flow lines. See the [Roadmap](#roadmap) and
+> **Status:** milestones 1–4: a clickable world map with search, a choropleth with legend, a
+> commodity view, and a country panel with a macro snapshot, strategic resources, trade charts
+> and trade-flow lines. See the [Roadmap](#roadmap) and
 > [Data status](#data-status).
 
 ## Running it
@@ -37,6 +38,7 @@ npm run data:refresh     # all steps
 npm run data:refresh geo # one step
 npm run data:refresh macro        # World Bank, IMF and currencies
 npm run data:refresh trade        # UN Comtrade (needs COMTRADE_API_KEY)
+npm run data:refresh resources    # energy, USGS minerals, FAOSTAT crops
 npm run data:refresh -- --cached  # reuse earlier downloads from pipeline/.cache/
 ```
 
@@ -165,26 +167,63 @@ export destinations (blue) and import origins (orange) that are countries on the
 Comtrade's non-country partners ("Areas, nes", and "Other Asia, nes", the label Comtrade uses
 for Taiwan) appear in the lists, but have no line.
 
+## Strategic resources
+
+`shared/commodities.ts` lists 21 commodities chosen for economic and strategic weight. Each one
+records where every measure comes from:
+
+| Measure                        | Source                                                                                   | Commodities                                                                                                              |
+| ------------------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Production (energy)            | Energy Institute _Statistical Review of World Energy_ (2025), via Our World in Data, TWh | crude oil, natural gas, coal                                                                                             |
+| Production, refining, reserves | USGS _Mineral Commodity Summaries_ data release, in USGS units                           | lithium, cobalt, nickel, copper, graphite, manganese, rare earths, gallium, germanium, tungsten, PGMs, bauxite, iron ore |
+| Production (crops)             | FAOSTAT Crops and livestock products, tonnes                                             | wheat, maize, rice, soybeans                                                                                             |
+| Exports, imports               | UN Comtrade, the commodity's HS codes summed                                             | all except gallium and germanium                                                                                         |
+
+- **Commodity view:** pick a commodity from the map selector, then a measure. The map colors
+  producers in quantile classes, and a card ranks the top 10 with their share of the source's
+  world total. A share is shown only when the country's figure and the world total are for the
+  same year.
+- **Strategic resources section:** lists everything a country produces, refines, holds or
+  trades, with its rank among sovereign states.
+- **Gaps are stated, not filled:**
+  - Uranium production (no open machine-readable source).
+  - Energy reserves (the Energy Institute stopped publishing them after 2020).
+  - Gallium and germanium trade (their HS code is shared with other metals).
+  - Smaller oil, gas and coal producers, which the Statistical Review only publishes inside
+    regional totals.
+- **USGS:** the step reads the MCS world-data CSV (default: MCS 2025 release, data year 2024;
+  `USGS_MCS_URL` overrides it). Columns are detected by pattern. If the layout differs, the step
+  stops and prints the header. Country names are mapped through `pipeline/resources/names.ts`,
+  and names that match nothing are listed in the output rather than dropped silently.
+- **FAOSTAT:** the step streams the bulk QCL archive (`FAOSTAT_QCL_URL` overrides the URL) and
+  joins areas by M49 code. "China, mainland" maps to China; Taiwan is separate.
+
 ## Data status
 
-The cloud environment this was built in could not reach the World Bank, IMF or UN Comtrade
-APIs, so `data/macro/` and `data/trade/` have not been generated yet. Those panel rows and
-sections say the source is not loaded. No placeholder figures were added. Run
-`npm run data:refresh macro trade` with network access (and a Comtrade key) to fill them in.
+Included now: boundaries, currencies, and fossil-fuel production (`data/resources/energy.json`,
+Statistical Review 2025, data year 2024).
+
+The cloud environment this was built in could not reach the World Bank, IMF, UN Comtrade,
+USGS ScienceBase or FAOSTAT, so the macro, trade, mineral and crop datasets have not been
+generated yet. The app says so wherever they would appear, and no placeholder figures were
+added. Run `npm run data:refresh macro trade usgs fao` with network access (and a Comtrade key)
+to fill them in.
 
 ## Data sources
 
-| Data               | Source                                                                                       | License                                                |
-| ------------------ | -------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
-| Country boundaries | [Natural Earth](https://www.naturalearthdata.com/) 1:50m Admin 0 – Countries, v5.1.2         | Public domain                                          |
-| UN membership list | [United Nations, Member States](https://www.un.org/en/about-us/member-states)                | Reference list                                         |
-| Macro indicators   | [World Bank, World Development Indicators](https://data.worldbank.org/) (API v2)             | CC BY 4.0                                              |
-| Macro indicators   | [IMF, World Economic Outlook](https://www.imf.org/external/datamapper/) (DataMapper API)     | IMF terms: free reuse with attribution                 |
-| Currencies         | ISO 4217 (SIX Group) via [datasets/country-codes](https://github.com/datasets/country-codes) | ODC-PDDL-1.0 (compilation)                             |
-| Goods trade        | [UN Comtrade](https://comtradeplus.un.org/) API v1                                           | UN Comtrade terms: non-commercial use with attribution |
+| Data                   | Source                                                                                                                  | License                                                |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Country boundaries     | [Natural Earth](https://www.naturalearthdata.com/) 1:50m Admin 0 – Countries, v5.1.2                                    | Public domain                                          |
+| UN membership list     | [United Nations, Member States](https://www.un.org/en/about-us/member-states)                                           | Reference list                                         |
+| Macro indicators       | [World Bank, World Development Indicators](https://data.worldbank.org/) (API v2)                                        | CC BY 4.0                                              |
+| Macro indicators       | [IMF, World Economic Outlook](https://www.imf.org/external/datamapper/) (DataMapper API)                                | IMF terms: free reuse with attribution                 |
+| Currencies             | ISO 4217 (SIX Group) via [datasets/country-codes](https://github.com/datasets/country-codes)                            | ODC-PDDL-1.0 (compilation)                             |
+| Fossil fuel production | Energy Institute, Statistical Review of World Energy 2025, via [Our World in Data](https://github.com/owid/energy-data) | CC BY 4.0 (OWID); EI data with attribution             |
+| Minerals               | [USGS Mineral Commodity Summaries](https://doi.org/10.5066/P13XCP3R) data release                                       | Public domain                                          |
+| Crops                  | [FAOSTAT](https://www.fao.org/faostat/en/#data/QCL) Crops and livestock products                                        | CC BY 4.0                                              |
+| Goods trade            | [UN Comtrade](https://comtradeplus.un.org/) API v1                                                                      | UN Comtrade terms: non-commercial use with attribution |
 
-Sources planned for the next milestones: UNCTAD and IMF (FDI), and USGS, the Energy Institute,
-EIA and FAOSTAT (resources).
+Sources planned for the next milestones: UNCTAD and IMF (FDI).
 They will be added here with their licenses as they are integrated.
 
 ## Roadmap
@@ -194,7 +233,7 @@ MVP:
 1. ✅ Scaffold, tooling, clickable world map, search, country panel, mobile layout
 2. ✅ Macro indicators pipeline → choropleth with legend, macro snapshot in the panel
 3. ✅ Trade: top products and partners, charts, trade-flow lines
-4. Strategic resources and the commodity view
+4. ✅ Strategic resources and the commodity view
 5. FDI
 6. Production chains (hybrid of trade-derived roles and curated, cited notes)
 7. Comparison mode, polish, accessibility, performance

@@ -6,6 +6,7 @@ const country = (id: string, name: string, aliases: string[] = []): Country => (
   id,
   iso3: id,
   iso2: null,
+  isoNumeric: null,
   name,
   formalName: null,
   status: 'un_member',

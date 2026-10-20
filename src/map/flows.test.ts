@@ -29,6 +29,7 @@ const country = (id: string, label: [number, number]): Country => ({
   id,
   iso3: id,
   iso2: null,
+  isoNumeric: null,
   name: id,
   formalName: null,
   status: 'un_member',

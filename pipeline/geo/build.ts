@@ -110,6 +110,7 @@ export function buildGeo(fc: FeatureCollection): GeoBuildResult {
       id,
       iso3: m.iso3,
       iso2: m.iso3 && /^[A-Z]{2}$/.test(p.ISO_A2_EH) ? p.ISO_A2_EH : null,
+      isoNumeric: m.iso3 && /^\d{3}$/.test(p.ISO_N3_EH) ? p.ISO_N3_EH : null,
       name,
       // A disputed territory's formal name is one claimant's name for it; leave it out.
       formalName: m.status === 'disputed' ? null : p.FORMAL_EN || null,

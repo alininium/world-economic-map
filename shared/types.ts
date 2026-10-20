@@ -39,6 +39,8 @@ export interface Country {
   id: string;
   iso3: string | null;
   iso2: string | null;
+  /** ISO 3166-1 numeric / UN M49 code, used to join sources keyed by number (e.g. FAOSTAT). */
+  isoNumeric: string | null;
   name: string;
   formalName: string | null;
   status: CountryStatus;

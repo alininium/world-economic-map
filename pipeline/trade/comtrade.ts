@@ -1,3 +1,4 @@
+import { COMMODITIES, RESOURCE_FILES, type ResourceTable } from '../../shared/commodities';
 import type { SeriesTable } from '../../shared/indicators';
 import {
   TRADE_SERIES,
@@ -136,6 +137,49 @@ export function byReporter(rows: readonly ComtradeRow[]): Map<number, ComtradeRo
   return out;
 }
 
+/**
+ * Exports and imports per strategic commodity: the commodity's HS codes are summed per
+ * reporter, at each reporter's latest year with data for that commodity and flow.
+ */
+export function commodityTrade(
+  rows: readonly ComtradeRow[],
+  reporterIds: ReadonlyMap<number, string>,
+): ResourceTable {
+  const table: ResourceTable = {};
+  for (const c of COMMODITIES) {
+    if (!c.hs.length) continue;
+    const codes = new Set(c.hs);
+    for (const [flow, measure] of [
+      ['X', 'exports'],
+      ['M', 'imports'],
+    ] as const) {
+      // reporter id → year → summed value
+      const sums = new Map<string, Map<number, number>>();
+      for (const r of rows) {
+        if (r.flowCode !== flow || r.partnerCode !== 0 || !codes.has(r.cmdCode) || !r.primaryValue)
+          continue;
+        const id = reporterIds.get(r.reporterCode);
+        if (!id) continue;
+        const byYear = sums.get(id) ?? new Map<number, number>();
+        const y = Number(r.period);
+        byYear.set(y, (byYear.get(y) ?? 0) + r.primaryValue);
+        sums.set(id, byYear);
+      }
+      const values: Record<string, { value: number; year: number }> = {};
+      for (const [id, byYear] of sums) {
+        const year = Math.max(...byYear.keys());
+        values[id] = { value: byYear.get(year)!, year };
+      }
+      (table[c.id] ??= {})[measure] = {
+        unit: 'US dollars',
+        values,
+        note: `UN Comtrade, ${c.hsLabel}; as reported by each country.`,
+      };
+    }
+  }
+  return table;
+}
+
 /** Herfindahl–Hirschman index over all product shares (0–1). */
 export function hhi(values: readonly number[]): number | null {
   const total = values.reduce((s, v) => s + Math.max(0, v), 0);
@@ -258,6 +302,24 @@ export async function runComtrade(): Promise<void> {
     track(res.retrievedAt);
   }
 
+  const hsCodes = [...new Set(COMMODITIES.flatMap((c) => c.hs))];
+  const commodityRows: ComtradeRow[] = [];
+  for (const batch of chunk(codes, BATCH_PARTNERS)) {
+    console.log(`  commodities: reporters ${batch.join(',')}`);
+    const res = await query(
+      {
+        reporterCode: batch.join(','),
+        period,
+        flowCode: 'X,M',
+        cmdCode: hsCodes.join(','),
+        partnerCode: '0',
+      },
+      key,
+    );
+    commodityRows.push(...res.rows);
+    track(res.retrievedAt);
+  }
+
   const summary: SeriesTable = {
     [TRADE_SERIES.exportsTotal]: {},
     [TRADE_SERIES.importsTotal]: {},
@@ -303,6 +365,12 @@ export async function runComtrade(): Promise<void> {
       'Goods only (no services). Reporter-declared values: exports FOB, imports CIF. Latest year within 3 years per reporter; countries that did not report are missing.',
   };
   await writeDataset(TRADE_SUMMARY_PATH, meta, summary);
+  const reporterIds = new Map([...reporters].map(([id, code]) => [code, id]));
+  await writeDataset(
+    RESOURCE_FILES.trade,
+    { ...meta, id: 'comtrade-commodities', title: 'Strategic commodity trade' },
+    commodityTrade(commodityRows, reporterIds),
+  );
   await recordInManifest('trade/by-country/', {
     ...meta,
     id: 'comtrade-profiles',

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { STATUS_LABELS } from '../shared/status';
 import type { Country } from '../shared/types';
 import { loadBaseData, type BaseData } from './data/load';
@@ -8,7 +8,13 @@ import { CountryPanel } from './panel/CountryPanel';
 import { CountrySearch } from './search/CountrySearch';
 import { useMediaQuery } from './useMediaQuery';
 
-const idFromHash = () => decodeURIComponent(window.location.hash.slice(1)) || null;
+function idFromHash(): string | null {
+  try {
+    return decodeURIComponent(window.location.hash.slice(1)) || null;
+  } catch {
+    return null; // malformed escape in a hand-edited or truncated link
+  }
+}
 
 export function App() {
   const [data, setData] = useState<BaseData | null>(null);
@@ -18,7 +24,8 @@ export function App() {
     const id = idFromHash();
     return id ? { id, nonce: 0 } : null;
   });
-  const wide = useMediaQuery('(min-width: 768px)');
+  const darkMode = useMediaQuery('(prefers-color-scheme: dark)');
+  const panelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     loadBaseData().then(setData, (e: Error) => setError(e.message));
@@ -26,21 +33,24 @@ export function App() {
 
   // Keep the selection in the URL so a country view can be bookmarked.
   useEffect(() => {
-    const target = selectedId ? `#${selectedId}` : ' ';
-    if (window.location.hash !== (selectedId ? target : '')) {
-      history.replaceState(null, '', target.trim() || window.location.pathname);
-    }
+    if (idFromHash() === selectedId) return;
+    history.replaceState(null, '', selectedId ? `#${selectedId}` : window.location.pathname);
   }, [selectedId]);
 
-  const countries = data?.countries.data;
-  const byId = useMemo(() => new Map((countries ?? []).map((c) => [c.id, c])), [countries]);
-  const features = useMemo(() => data && toMapFeatures(data.topo, data.countries.data), [data]);
-
-  const select = useCallback((id: string | null) => setSelectedId(id), []);
-  const selectAndFocus = useCallback((id: string) => {
-    setSelectedId(id);
+  const focusOn = useCallback((id: string) => {
     setFocus((f) => ({ id, nonce: (f?.nonce ?? 0) + 1 }));
   }, []);
+
+  // Follow links and hand edits to the hash while the app is open.
+  useEffect(() => {
+    const onHashChange = () => {
+      const id = idFromHash();
+      setSelectedId(id);
+      if (id) focusOn(id);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [focusOn]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -50,19 +60,32 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  const countries = data?.countries.data;
+  const byId = useMemo(() => new Map((countries ?? []).map((c) => [c.id, c])), [countries]);
+  const features = useMemo(() => data && toMapFeatures(data.topo, data.countries.data), [data]);
+
+  const select = useCallback((id: string | null) => setSelectedId(id), []);
+  const selectAndFocus = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      focusOn(id);
+    },
+    [focusOn],
+  );
+
+  /** How much of the map the panel covers: a right column on wide screens, a bottom sheet on phones. */
+  const getObscured = useCallback(() => {
+    const rect = panelRef.current?.getBoundingClientRect();
+    if (!rect) return { right: 0, bottom: 0 };
+    return rect.top > 0
+      ? { right: 0, bottom: window.innerHeight - rect.top }
+      : { right: window.innerWidth - rect.left, bottom: 0 };
+  }, []);
+
   const selected = selectedId ? byId.get(selectedId) : undefined;
   const boundariesMeta = data?.manifest.datasets.find(
     (d) => d.path === 'geo/countries.topo.json',
   )?.meta;
-  const panelInset = useMemo(
-    () =>
-      selected
-        ? wide
-          ? { right: 400, bottom: 0 }
-          : { right: 0, bottom: window.innerHeight * 0.5 }
-        : { right: 0, bottom: 0 },
-    [selected, wide],
-  );
 
   return (
     <div className={`app ${selected ? 'has-panel' : ''}`}>
@@ -84,7 +107,8 @@ export function App() {
           countries={byId}
           selectedId={selectedId}
           focus={focus}
-          panelInset={panelInset}
+          darkMode={darkMode}
+          getObscured={getObscured}
           onSelect={select}
           renderTooltip={(c: Country) => (
             <>
@@ -98,6 +122,7 @@ export function App() {
       {selected && boundariesMeta && (
         <CountryPanel
           key={selected.id}
+          ref={panelRef}
           country={selected}
           sovereign={selected.sovereign ? byId.get(selected.sovereign) : undefined}
           boundariesMeta={boundariesMeta}

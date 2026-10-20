@@ -5,7 +5,7 @@ import { presimplify, simplify } from 'topojson-simplify';
 import type { GeometryCollection, GeometryObject, Topology } from 'topojson-specification';
 import type { Country, DatasetMeta } from '../../shared/types';
 import { cachedFetch } from '../lib/fetch';
-import { recordInManifest, today, writeDataset, writeRaw } from '../lib/write';
+import { recordInManifest, writeDataset, writeRaw } from '../lib/write';
 import { approxArea, bboxOfRings, classifyFeature, type NeProps } from './classify';
 import { DISPLAY_NAMES } from './territories';
 
@@ -129,13 +129,14 @@ export function buildGeo(fc: FeatureCollection): GeoBuildResult {
 
 export async function runGeo(): Promise<void> {
   console.log('geo: Natural Earth admin-0 countries');
-  const fc = JSON.parse(await cachedFetch(NE_URL)) as FeatureCollection;
+  const { body, retrievedAt } = await cachedFetch(NE_URL);
+  const fc = JSON.parse(body) as FeatureCollection;
   const { countries, topo } = buildGeo(fc);
   const base: Omit<DatasetMeta, 'id' | 'title'> = {
     source: `Natural Earth 1:50m Admin 0 – Countries (${NE_VERSION}); territory policy in pipeline/geo/territories.ts`,
     sourceUrl: 'https://www.naturalearthdata.com/downloads/50m-cultural-vectors/',
     license: 'Public domain (Natural Earth terms of use)',
-    retrievedAt: today(),
+    retrievedAt,
     dataYear: NE_VERSION,
   };
   await writeRaw('geo/countries.topo.json', topo);

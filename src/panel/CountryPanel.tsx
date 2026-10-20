@@ -1,7 +1,9 @@
+import type { Ref } from 'react';
 import { STATUS_LABELS } from '../../shared/status';
 import type { Country, DatasetMeta } from '../../shared/types';
 
 interface Props {
+  ref?: Ref<HTMLElement>;
   country: Country;
   sovereign: Country | undefined;
   boundariesMeta: DatasetMeta;
@@ -17,10 +19,17 @@ const STATUS_NOTES: Partial<Record<Country['status'], string>> = {
     'Shown with its own data where available, but excluded from sovereign-state rankings.',
 };
 
-export function CountryPanel({ country, sovereign, boundariesMeta, onClose, onSelect }: Props) {
+export function CountryPanel({
+  ref,
+  country,
+  sovereign,
+  boundariesMeta,
+  onClose,
+  onSelect,
+}: Props) {
   const note = STATUS_NOTES[country.status];
   return (
-    <aside className="panel" aria-labelledby="panel-title">
+    <aside ref={ref} className="panel" aria-labelledby="panel-title">
       <header className="panel-header">
         <div>
           <h2 id="panel-title">{country.name}</h2>

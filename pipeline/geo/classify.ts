@@ -63,7 +63,9 @@ export function bboxOfRings(rings: readonly (readonly (readonly number[])[])[]):
       e360 = Math.max(e360, l360);
     }
   }
-  return e360 - w360 < e - w ? [w360, s, e360, n] : [w, s, e, n];
+  // Only a shape spanning more than half the globe in [-180, 180] can be crossing the
+  // antimeridian; comparing widths directly lets rounding flip shapes that do not.
+  return e - w > 180 && e360 - w360 < e - w ? [w360, s, e360, n] : [w, s, e, n];
 }
 
 /** Planar area in square degrees, each ring scaled by cos(mean latitude) so it roughly tracks real area. */

@@ -34,11 +34,18 @@ Other scripts:
 cp .env.example .env     # only needed for sources that require a key (later milestones)
 npm run data:refresh     # all steps
 npm run data:refresh geo # one step
+npm run data:refresh -- --cached  # reuse earlier downloads from pipeline/.cache/
 ```
 
-Each step downloads its sources (cached raw in `pipeline/.cache/`, git-ignored), cleans and
-normalizes them, and writes files to `data/`. Requests to the same host are spaced at least
-one second apart and retried with exponential backoff.
+Each step downloads its sources, keeps the raw responses in `pipeline/.cache/` (git-ignored),
+cleans and normalizes them, and writes files to `data/`. Requests to the same host are spaced
+at least one second apart. Rate limiting (429), server errors and network failures are retried
+with exponential backoff; other HTTP errors fail at once.
+
+If a step fails, for example because a source is unreachable, its existing files in `data/`
+are left untouched, the remaining steps still run, and the command exits non-zero.
+`retrievedAt` is always the date the response was actually downloaded, including with
+`--cached`.
 
 Every dataset is written as `{ "meta": {...}, "data": ... }`, and `data/manifest.json` lists
 every file with its provenance:

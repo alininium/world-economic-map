@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const CACHE_DIR = path.resolve(import.meta.dirname, '../.cache');
@@ -8,6 +8,12 @@ const CACHE_DIR = path.resolve(import.meta.dirname, '../.cache');
 const MIN_INTERVAL_MS = 1000;
 const lastRequest = new Map<string, number>();
 
+/** When true, sources already in pipeline/.cache are reused instead of downloaded again. */
+let useCache = false;
+export function setUseCache(value: boolean): void {
+  useCache = value;
+}
+
 async function politeDelay(url: string): Promise<void> {
   const host = new URL(url).host;
   const wait = (lastRequest.get(host) ?? 0) + MIN_INTERVAL_MS - Date.now();
@@ -15,23 +21,43 @@ async function politeDelay(url: string): Promise<void> {
   lastRequest.set(host, Date.now());
 }
 
+export class HttpError extends Error {
+  constructor(
+    readonly status: number,
+    url: string,
+  ) {
+    super(`HTTP ${status} for ${url}`);
+  }
+}
+
+/** Rate limiting and server errors may clear up; other HTTP errors will not. */
+export const isRetryable = (err: unknown): boolean =>
+  !(err instanceof HttpError) || err.status === 429 || err.status >= 500;
+
 export interface FetchOptions {
-  /** Re-download even if a cached copy exists. */
-  refresh?: boolean;
   headers?: Record<string, string>;
   retries?: number;
 }
 
+export interface Fetched {
+  body: string;
+  /** ISO date (YYYY-MM-DD) the body was actually downloaded. */
+  retrievedAt: string;
+}
+
+const isoDate = (d: Date) => d.toISOString().slice(0, 10);
+
 /**
- * Downloads a URL as text, caching the raw response under pipeline/.cache so re-running
- * the transforms does not hit the source again. Retries with exponential backoff.
+ * Downloads a URL as text and keeps the raw response in pipeline/.cache. Transient failures
+ * are retried with exponential backoff; the cache is only read back with `--cached`.
  */
-export async function cachedFetch(url: string, opts: FetchOptions = {}): Promise<string> {
+export async function cachedFetch(url: string, opts: FetchOptions = {}): Promise<Fetched> {
   const key = createHash('sha256').update(url).digest('hex').slice(0, 16);
   const file = path.join(CACHE_DIR, `${key}-${path.basename(new URL(url).pathname) || 'index'}`);
-  if (!opts.refresh) {
+  if (useCache) {
     try {
-      return await readFile(file, 'utf8');
+      const [body, info] = await Promise.all([readFile(file, 'utf8'), stat(file)]);
+      return { body, retrievedAt: isoDate(info.mtime) };
     } catch {
       // not cached yet
     }
@@ -41,13 +67,13 @@ export async function cachedFetch(url: string, opts: FetchOptions = {}): Promise
     await politeDelay(url);
     try {
       const res = await fetch(url, { headers: opts.headers });
-      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
-      const text = await res.text();
+      if (!res.ok) throw new HttpError(res.status, url);
+      const body = await res.text();
       await mkdir(CACHE_DIR, { recursive: true });
-      await writeFile(file, text);
-      return text;
+      await writeFile(file, body);
+      return { body, retrievedAt: isoDate(new Date()) };
     } catch (err) {
-      if (attempt >= retries) throw err;
+      if (attempt >= retries || !isRetryable(err)) throw err;
       const backoff = 2000 * 2 ** attempt;
       console.warn(`  retrying in ${backoff / 1000}s: ${(err as Error).message}`);
       await new Promise((r) => setTimeout(r, backoff));

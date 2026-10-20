@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import type { Country } from '../../shared/types';
 import { buildSearchIndex, searchCountries } from './match';
 
@@ -14,13 +14,14 @@ export function CountrySearch({ countries, onPick }: Props) {
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
   const listId = useId();
+  const inputRef = useRef<HTMLInputElement>(null);
   const results = useMemo(() => searchCountries(index, query), [index, query]);
   const showList = open && results.length > 0;
 
-  const pick = (c: Country | undefined, input?: HTMLInputElement) => {
+  const pick = (c: Country | undefined) => {
     if (!c) return;
     // Dismiss the on-screen keyboard on phones so the map and panel are visible.
-    input?.blur();
+    inputRef.current?.blur();
     onPick(c.id);
     setQuery('');
     setOpen(false);
@@ -29,6 +30,7 @@ export function CountrySearch({ countries, onPick }: Props) {
   return (
     <div className="search">
       <input
+        ref={inputRef}
         type="search"
         placeholder="Search for a country…"
         aria-label="Search for a country"
@@ -53,7 +55,7 @@ export function CountrySearch({ countries, onPick }: Props) {
             e.preventDefault();
             setActive((i) => Math.max(i - 1, 0));
           } else if (e.key === 'Enter') {
-            pick(results[active], e.currentTarget);
+            pick(results[active]);
           } else if (e.key === 'Escape') {
             setOpen(false);
           }

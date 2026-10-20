@@ -1,4 +1,8 @@
-import type { DataDrivenPropertyValueSpecification, StyleSpecification } from 'maplibre-gl';
+import type {
+  DataDrivenPropertyValueSpecification,
+  Map as MapLibreMap,
+  StyleSpecification,
+} from 'maplibre-gl';
 import type { CountryStatus } from '../../shared/types';
 import type { MapFeatures } from './geometry';
 import type { MapPalette } from './palette';
@@ -29,11 +33,39 @@ const statusColor = (p: MapPalette) =>
     p.status.other,
   ] as unknown as DataDrivenPropertyValueSpecification<string>;
 
+type SetPaint = Parameters<MapLibreMap['setPaintProperty']>;
+type Paint = Record<string, SetPaint[2]>;
+
+/** Colour-dependent paint for each layer; shared by the initial style and theme switches. */
+export function layerPaint(p: MapPalette): Record<string, Paint> {
+  return {
+    ocean: { 'background-color': p.ocean },
+    [LAYER_FILL]: { 'fill-color': byState(p, statusColor(p)) },
+    'country-border': { 'line-color': p.border },
+    'country-selected-outline': { 'line-color': p.selected },
+    [LAYER_MARKERS]: {
+      'circle-color': byState(p, statusColor(p)),
+      'circle-stroke-color': p.hatch,
+    },
+  };
+}
+
+/** Repaints an existing map for a new palette without rebuilding sources or feature state. */
+export function applyPalette(map: MapLibreMap, p: MapPalette): void {
+  for (const [layer, paint] of Object.entries(layerPaint(p))) {
+    for (const [prop, value] of Object.entries(paint)) {
+      map.setPaintProperty(layer, prop as SetPaint[1], value);
+    }
+  }
+  if (map.hasImage(HATCH_IMAGE)) map.updateImage(HATCH_IMAGE, hatchImage(p.hatch));
+}
+
 /**
  * A self-contained style with no basemap tiles: the app draws only its own country shapes,
  * so it needs no tile service or API key and works offline.
  */
 export function buildStyle(p: MapPalette, features: MapFeatures): StyleSpecification {
+  const paint = layerPaint(p);
   return {
     version: 8,
     sources: {
@@ -41,13 +73,8 @@ export function buildStyle(p: MapPalette, features: MapFeatures): StyleSpecifica
       [SOURCE_MARKERS]: { type: 'geojson', data: features.markers, promoteId: 'id' },
     },
     layers: [
-      { id: 'ocean', type: 'background', paint: { 'background-color': p.ocean } },
-      {
-        id: LAYER_FILL,
-        type: 'fill',
-        source: SOURCE_SHAPES,
-        paint: { 'fill-color': byState(p, statusColor(p)) },
-      },
+      { id: 'ocean', type: 'background', paint: paint.ocean },
+      { id: LAYER_FILL, type: 'fill', source: SOURCE_SHAPES, paint: paint[LAYER_FILL] },
       {
         id: 'disputed-hatch',
         type: 'fill',
@@ -60,7 +87,7 @@ export function buildStyle(p: MapPalette, features: MapFeatures): StyleSpecifica
         type: 'line',
         source: SOURCE_SHAPES,
         paint: {
-          'line-color': p.border,
+          ...paint['country-border'],
           'line-width': ['interpolate', ['linear'], ['zoom'], 1, 0.4, 6, 1.2],
         },
       },
@@ -69,7 +96,7 @@ export function buildStyle(p: MapPalette, features: MapFeatures): StyleSpecifica
         type: 'line',
         source: SOURCE_SHAPES,
         paint: {
-          'line-color': p.selected,
+          ...paint['country-selected-outline'],
           'line-width': 2,
           'line-opacity': ['case', ['boolean', ['feature-state', 'selected'], false], 1, 0],
         },
@@ -80,13 +107,12 @@ export function buildStyle(p: MapPalette, features: MapFeatures): StyleSpecifica
         source: SOURCE_MARKERS,
         maxzoom: 5,
         paint: {
+          ...paint[LAYER_MARKERS],
           'circle-radius': ['interpolate', ['linear'], ['zoom'], 0, 2.5, 4, 5],
-          'circle-color': byState(p, statusColor(p)),
-          'circle-stroke-color': p.hatch,
           'circle-stroke-width': 1,
         },
       },
-    ],
+    ] as StyleSpecification['layers'],
   };
 }
 

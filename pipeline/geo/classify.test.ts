@@ -107,3 +107,15 @@ describe('approxArea', () => {
     expect(approxArea(north)).toBeCloseTo(0.49, 1);
   });
 });
+
+describe('bboxOfRings in the western hemisphere', () => {
+  it('keeps [-180, 180] longitudes for shapes that do not cross the antimeridian', () => {
+    const argentina = [
+      [
+        [-73.6, -55],
+        [-53.6, -21.8],
+      ],
+    ];
+    expect(bboxOfRings(argentina)).toEqual([-73.6, -55, -53.6, -21.8]);
+  });
+});

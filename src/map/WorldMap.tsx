@@ -4,12 +4,13 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Country } from '../../shared/types';
 import type { MapFeatures } from './geometry';
-import { currentPalette } from './palette';
+import { paletteFor } from './palette';
 import {
   HATCH_IMAGE,
   INTERACTIVE_LAYERS,
   SOURCE_MARKERS,
   SOURCE_SHAPES,
+  applyPalette,
   buildStyle,
   hatchImage,
 } from './style';
@@ -28,8 +29,9 @@ interface Props {
   countries: ReadonlyMap<string, Country>;
   selectedId: string | null;
   focus: FocusRequest | null;
-  /** Pixels covered by the detail panel, so camera moves keep the country visible. */
-  panelInset: { right: number; bottom: number };
+  darkMode: boolean;
+  /** Measures the map area covered by other UI (the detail panel) at the moment the camera moves. */
+  getObscured: () => { right: number; bottom: number };
   onSelect: (id: string | null) => void;
   renderTooltip: (country: Country) => ReactNode;
 }
@@ -49,21 +51,24 @@ export function WorldMap({
   countries,
   selectedId,
   focus,
-  panelInset,
+  darkMode,
+  getObscured,
   onSelect,
   renderTooltip,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const [hover, setHover] = useState<Hover | null>(null);
+  // Feature state can only be set once the sources exist, i.e. after the first 'load'.
+  const [loaded, setLoaded] = useState(false);
   // Handlers are attached once; keep the latest props in refs.
-  const latest = useRef({ countries, onSelect });
+  const latest = useRef({ countries, onSelect, getObscured, darkMode });
   useEffect(() => {
-    latest.current = { countries, onSelect };
+    latest.current = { countries, onSelect, getObscured, darkMode };
   });
 
   useEffect(() => {
-    const palette = currentPalette();
+    const palette = paletteFor(latest.current.darkMode);
     const map = new MapLibreMap({
       container: container.current!,
       style: buildStyle(palette, features),
@@ -123,44 +128,48 @@ export function WorldMap({
       latest.current.onSelect(pick(e.point)?.id ?? null);
     });
 
+    map.once('load', () => setLoaded(true));
+
     mapRef.current = map;
     return () => {
       mapRef.current = null;
+      setLoaded(false);
       map.remove();
     };
   }, [features]);
 
+  // Follow the OS colour scheme live, as the CSS does.
+  const appliedDark = useRef(darkMode);
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loaded || appliedDark.current === darkMode) return;
+    applyPalette(map, paletteFor(darkMode));
+    appliedDark.current = darkMode;
+  }, [darkMode, loaded]);
+
   // Mirror the selection into feature state.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !selectedId) return;
-    const apply = () => {
-      map.setFeatureState({ source: SOURCE_SHAPES, id: selectedId }, { selected: true });
-      map.setFeatureState({ source: SOURCE_MARKERS, id: selectedId }, { selected: true });
+    if (!map || !loaded || !selectedId) return;
+    const set = (selected: boolean) => {
+      map.setFeatureState({ source: SOURCE_SHAPES, id: selectedId }, { selected });
+      map.setFeatureState({ source: SOURCE_MARKERS, id: selectedId }, { selected });
     };
-    if (map.isStyleLoaded()) apply();
-    else map.once('load', apply);
+    set(true);
     return () => {
-      map.off('load', apply);
-      if (!mapRef.current) return;
-      map.setFeatureState({ source: SOURCE_SHAPES, id: selectedId }, { selected: false });
-      map.setFeatureState({ source: SOURCE_MARKERS, id: selectedId }, { selected: false });
+      if (mapRef.current === map) set(false);
     };
-  }, [selectedId]);
+  }, [selectedId, loaded]);
 
   // Move the camera when asked to (search, deep link), keeping clear of the panel.
-  const insetRef = useRef(panelInset);
-  useEffect(() => {
-    insetRef.current = panelInset;
-  }, [panelInset]);
   useEffect(() => {
     const map = mapRef.current;
     const country = focus && countries.get(focus.id);
     if (!map || !country) return;
     const [w, s, e, n] = country.bbox;
-    const inset = insetRef.current;
+    const obscured = latest.current.getObscured();
     map.fitBounds(new LngLatBounds([w, s], [e, n]), {
-      padding: { top: 72, left: 32, right: 32 + inset.right, bottom: 32 + inset.bottom },
+      padding: { top: 72, left: 32, right: 32 + obscured.right, bottom: 32 + obscured.bottom },
       maxZoom: country.tiny ? 6 : 5,
       duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 900,
     });

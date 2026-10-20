@@ -41,6 +41,6 @@ const dark: MapPalette = {
   },
 };
 
-export function currentPalette(): MapPalette {
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? dark : light;
+export function paletteFor(darkMode: boolean): MapPalette {
+  return darkMode ? dark : light;
 }

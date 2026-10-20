@@ -1,7 +1,35 @@
 import type { IndicatorDef } from '../../shared/indicators';
 import { SOURCE_LABELS, type Figure } from '../data/macro';
 import { formatBreak } from '../format';
-import type { ClassBin } from './choropleth';
+import { binLabel, type ClassBin } from './choropleth';
+
+/** Swatch list shared by the indicator legend and the commodity card. */
+export function LegendBins({
+  bins,
+  format,
+  noDataColor,
+  noDataLabel = 'No data',
+}: {
+  bins: readonly ClassBin[];
+  format: (v: number) => string;
+  noDataColor: string;
+  noDataLabel?: string;
+}) {
+  return (
+    <ul className="legend-bins">
+      {bins.map((b) => (
+        <li key={`${b.min}-${b.max}`}>
+          <span className="swatch" style={{ background: b.color }} aria-hidden="true" />
+          {binLabel(b, format)}
+        </li>
+      ))}
+      <li>
+        <span className="swatch" style={{ background: noDataColor }} aria-hidden="true" />
+        {noDataLabel}
+      </li>
+    </ul>
+  );
+}
 
 interface Props {
   def: IndicatorDef;
@@ -9,14 +37,6 @@ interface Props {
   noDataColor: string;
   /** Figures shown on the map, for the year range and source summary. */
   figures: readonly Figure[];
-}
-
-function binLabel(b: ClassBin, def: IndicatorDef): string {
-  const f = (v: number) => formatBreak(v, def.unit);
-  if (b.min === -Infinity && b.max === Infinity) return 'All values';
-  if (b.min === -Infinity) return `< ${f(b.max)}`;
-  if (b.max === Infinity) return `≥ ${f(b.min)}`;
-  return `${f(b.min)} to ${f(b.max)}`;
 }
 
 export function Legend({ def, bins, noDataColor, figures }: Props) {
@@ -33,18 +53,7 @@ export function Legend({ def, bins, noDataColor, figures }: Props) {
   return (
     <section className="legend" aria-label={`Legend: ${def.label}`}>
       <h2>{def.label}</h2>
-      <ul>
-        {bins.map((b) => (
-          <li key={`${b.min}-${b.max}`}>
-            <span className="swatch" style={{ background: b.color }} aria-hidden="true" />
-            {binLabel(b, def)}
-          </li>
-        ))}
-        <li>
-          <span className="swatch" style={{ background: noDataColor }} aria-hidden="true" />
-          No data
-        </li>
-      </ul>
+      <LegendBins bins={bins} format={(v) => formatBreak(v, def.unit)} noDataColor={noDataColor} />
       <p className="legend-note">
         Quantile classes across sovereign states.
         {years.length > 0 &&

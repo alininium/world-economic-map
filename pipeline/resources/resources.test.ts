@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { Country } from '../../shared/types';
 import { commodityTrade, type ComtradeRow } from '../trade/comtrade';
 import { energyTable } from './energy';
-import { faoTable, streamZipLines, type FaoRow } from './fao';
+import { faoTable, isMainDataFile, streamZipLines, type FaoRow } from './fao';
 import { nameResolver } from './names';
 import { detectColumns, parseUsgsNumber, usgsTable } from './usgs';
 
@@ -119,6 +119,41 @@ describe('USGS world data', () => {
   it('reports names it could not match instead of dropping them silently', () => {
     expect(unmatched).toEqual(['Atlantis']);
   });
+
+  const pgm = (country: string, type: string, p24: string) =>
+    Object.fromEntries(
+      header.map((h, i) => [
+        h,
+        ['MCS', 'Platinum-group metals', country, type, 'kilograms', '', p24, ''][i]!,
+      ]),
+    );
+
+  it('keeps different series apart instead of adding them together', () => {
+    const r = usgsTable(
+      [
+        pgm('Indonesia', 'Mine production: Platinum', '100'),
+        pgm('Indonesia', 'Mine production: Palladium', '300'),
+        pgm('World total (rounded)', 'Mine production: Platinum', '1000'),
+        pgm('World total (rounded)', 'Mine production: Palladium', '2000'),
+      ],
+      resolve,
+    );
+    expect(r.table.platinum?.production?.values.IDN).toEqual({ value: 100, year: 2024 });
+    expect(r.table.platinum?.production?.world).toEqual({ value: 1000, year: 2024 });
+    expect(r.table.palladium?.production?.values.IDN).toEqual({ value: 300, year: 2024 });
+    expect(r.table.palladium?.production?.world).toEqual({ value: 2000, year: 2024 });
+  });
+
+  it('never lets an older row overwrite a newer one for the same country', () => {
+    const r = usgsTable(
+      [
+        row('Indonesia', 'Mine production, cobalt content', '', '500', ''),
+        row('Indonesia', 'Mine production, cobalt content', '40', 'W', ''),
+      ],
+      resolve,
+    );
+    expect(r.table.cobalt?.production?.values.IDN).toEqual({ value: 500, year: 2024 });
+  });
 });
 
 describe('FAOSTAT', () => {
@@ -129,11 +164,18 @@ describe('FAOSTAT', () => {
     '"41","\'156","China, mainland","15","Wheat","5510","Production","2023","t","130"\n' +
     '"41","\'156","China, mainland","15","Wheat","5312","Area harvested","2023","ha","20"\n';
 
-  it('streams CSV lines out of a zip', () => {
-    const zip = zipSync({ 'data.csv': strToU8(csv) });
+  it('streams lines of the main data file only, skipping code lists', () => {
+    const zip = zipSync({
+      'Production_Crops_Livestock_E_AreaCodes.csv': strToU8('"Area Code","Area"\n"1","X"\n'),
+      'Production_Crops_Livestock_E_All_Data_(Normalized).csv': strToU8(csv),
+      'Production_Crops_Livestock_E_Elements.csv': strToU8(
+        '"Element Code","Element"\n"5510","Production"\n',
+      ),
+    });
     const lines: string[] = [];
-    streamZipLines(zip, (l) => lines.push(l));
+    streamZipLines(zip, (l) => lines.push(l), isMainDataFile);
     expect(lines).toHaveLength(5);
+    expect(lines[0]).toContain('Area Code (M49)');
   });
 
   it('maps M49 codes, keeps production only and reads the world total', () => {

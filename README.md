@@ -169,15 +169,15 @@ for Taiwan) appear in the lists, but have no line.
 
 ## Strategic resources
 
-`shared/commodities.ts` lists 21 commodities chosen for economic and strategic weight. Each one
+`shared/commodities.ts` lists 22 commodities chosen for economic and strategic weight. Each one
 records where every measure comes from:
 
-| Measure                        | Source                                                                                   | Commodities                                                                                                              |
-| ------------------------------ | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Production (energy)            | Energy Institute _Statistical Review of World Energy_ (2025), via Our World in Data, TWh | crude oil, natural gas, coal                                                                                             |
-| Production, refining, reserves | USGS _Mineral Commodity Summaries_ data release, in USGS units                           | lithium, cobalt, nickel, copper, graphite, manganese, rare earths, gallium, germanium, tungsten, PGMs, bauxite, iron ore |
-| Production (crops)             | FAOSTAT Crops and livestock products, tonnes                                             | wheat, maize, rice, soybeans                                                                                             |
-| Exports, imports               | UN Comtrade, the commodity's HS codes summed                                             | all except gallium and germanium                                                                                         |
+| Measure                        | Source                                                                                   | Commodities                                                                                                                             |
+| ------------------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Production (energy)            | Energy Institute _Statistical Review of World Energy_ (2025), via Our World in Data, TWh | crude oil, natural gas, coal                                                                                                            |
+| Production, refining, reserves | USGS _Mineral Commodity Summaries_ data release, in USGS units                           | lithium, cobalt, nickel, copper, graphite, manganese, rare earths, gallium, germanium, tungsten, platinum, palladium, bauxite, iron ore |
+| Production (crops)             | FAOSTAT Crops and livestock products, tonnes                                             | wheat, maize, rice, soybeans                                                                                                            |
+| Exports, imports               | UN Comtrade, the commodity's HS codes summed                                             | all except gallium and germanium                                                                                                        |
 
 - **Commodity view:** pick a commodity from the map selector, then a measure. The map colors
   producers in quantile classes, and a card ranks the top 10 with their share of the source's

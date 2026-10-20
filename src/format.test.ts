@@ -54,5 +54,6 @@ describe('formatQuantity', () => {
     expect(formatQuantity(5.9e6, 'tonnes')).toBe('5.90 m t');
     expect(formatQuantity(9977, 'TWh')).toBe('9,977 TWh');
     expect(formatQuantity(3.2e9, 'US dollars')).toBe('$3.20 bn');
+    expect(formatQuantity(0.226, 'TWh')).toBe('0.226 TWh');
   });
 });

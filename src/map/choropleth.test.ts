@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildClasses, colorFor, quantileThresholds } from './choropleth';
+import { buildClasses, classify, colorFor, quantileThresholds } from './choropleth';
 
 const palette = {
   sequential: ['s1', 's2', 's3', 's4', 's5'],
@@ -53,5 +53,23 @@ describe('buildClasses', () => {
 
   it('returns no classes when there is no data', () => {
     expect(buildClasses([], 'sequential', palette)).toEqual([]);
+  });
+});
+
+describe('classify', () => {
+  it('takes breaks from ranked entities but colours every entity', () => {
+    const { bins, colors } = classify(
+      [
+        ['A', 1],
+        ['B', 2],
+        ['DEP', 1000],
+      ],
+      (id) => id !== 'DEP',
+      'sequential',
+      palette,
+    );
+    expect(bins.at(-1)!.min).toBeLessThan(1000);
+    expect(Object.keys(colors).sort()).toEqual(['A', 'B', 'DEP']);
+    expect(colors.DEP).toBe(bins.at(-1)!.color);
   });
 });

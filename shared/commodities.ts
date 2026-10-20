@@ -36,7 +36,11 @@ export const CATEGORY_LABELS: Record<CommodityCategory, string> = {
 export interface UsgsRef {
   /** Matches the commodity name in the USGS MCS world data (case-insensitive). */
   commodity: RegExp;
-  /** Matches the production type for mine production and for refinery/processing output. */
+  /**
+   * Match the TYPE of the rows for mine production and for refinery/processing output. When
+   * several distinct TYPE values match, only the first in the file is used: different series
+   * (e.g. ore vs metal content) are never added together.
+   */
   mine?: RegExp;
   refinery?: RegExp;
   /** USGS publishes reserves for this commodity. */
@@ -156,13 +160,23 @@ export const COMMODITIES: readonly CommodityDef[] = [
     hsLabel: 'tungsten ores (2611)',
   },
   {
-    id: 'pgm',
-    label: 'Platinum-group metals',
+    id: 'platinum',
+    label: 'Platinum',
     category: 'critical_mineral',
-    description: 'Catalytic converters, hydrogen electrolysers, chemicals.',
-    usgs: { commodity: /^platinum/i, mine, reserves: true },
-    hs: ['7110'],
-    hsLabel: 'platinum, palladium and other PGMs, unwrought or semi-manufactured (7110)',
+    description: 'Catalytic converters, hydrogen electrolysers and fuel cells, glass.',
+    usgs: { commodity: /^platinum/i, mine: /mine production.*platinum/i, reserves: true },
+    hs: ['711011', '711019'],
+    hsLabel: 'platinum, unwrought or semi-manufactured (711011, 711019)',
+    note: 'USGS publishes reserves for the platinum-group metals combined, so reserves are for all PGMs.',
+  },
+  {
+    id: 'palladium',
+    label: 'Palladium',
+    category: 'critical_mineral',
+    description: 'Catalytic converters, electronics.',
+    usgs: { commodity: /^platinum/i, mine: /mine production.*palladium/i },
+    hs: ['711021', '711029'],
+    hsLabel: 'palladium, unwrought or semi-manufactured (711021, 711029)',
   },
   {
     id: 'bauxite',
@@ -178,7 +192,8 @@ export const COMMODITIES: readonly CommodityDef[] = [
     label: 'Iron ore',
     category: 'critical_mineral',
     description: 'Steelmaking.',
-    usgs: { commodity: /^iron ore$/i, mine, reserves: true },
+    // USGS gives both usable ore and iron content; use usable ore, the traded product.
+    usgs: { commodity: /^iron ore$/i, mine: /mine production.*usable|usable ore/i, reserves: true },
     hs: ['2601'],
     hsLabel: 'iron ores (2601)',
   },

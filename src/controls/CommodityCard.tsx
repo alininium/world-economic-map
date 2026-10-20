@@ -4,6 +4,7 @@ import type { ResourceIndex } from '../data/resources';
 import { ranking } from '../data/resources';
 import { formatQuantity, formatShare } from '../format';
 import type { ClassBin } from '../map/choropleth';
+import { LegendBins } from '../map/Legend';
 
 interface Props {
   commodity: string;
@@ -71,22 +72,12 @@ export function CommodityCard({
               </li>
             ))}
           </ol>
-          <ul className="legend-bins">
-            {bins.map((b) => (
-              <li key={`${b.min}-${b.max}`}>
-                <span className="swatch" style={{ background: b.color }} aria-hidden="true" />
-                {b.min === -Infinity
-                  ? `< ${formatQuantity(b.max, series.table.unit)}`
-                  : b.max === Infinity
-                    ? `≥ ${formatQuantity(b.min, series.table.unit)}`
-                    : `${formatQuantity(b.min, series.table.unit)} to ${formatQuantity(b.max, series.table.unit)}`}
-              </li>
-            ))}
-            <li>
-              <span className="swatch" style={{ background: noDataColor }} aria-hidden="true" />
-              Not listed / no data
-            </li>
-          </ul>
+          <LegendBins
+            bins={bins}
+            format={(v) => formatQuantity(v, series.table.unit)}
+            noDataColor={noDataColor}
+            noDataLabel="Not listed / no data"
+          />
           <p className="legend-note">
             {series.table.note && `${series.table.note} `}
             Source:{' '}

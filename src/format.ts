@@ -13,6 +13,8 @@ export function compact(n: number): string {
   for (const [size, suffix] of SCALES) {
     if (rounded >= size) return `${n < 0 ? '-' : ''}${trim(rounded / size)}${suffix}`;
   }
+  // Below 1,000 keep three significant digits, so 0.226 does not collapse to 0.
+  if (Math.abs(n) < 1000) return String(Number(n.toPrecision(3)));
   return Math.round(n).toLocaleString('en-US');
 }
 

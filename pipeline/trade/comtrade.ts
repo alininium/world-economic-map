@@ -302,16 +302,17 @@ export async function runComtrade(): Promise<void> {
     track(res.retrievedAt);
   }
 
-  const hsCodes = [...new Set(COMMODITIES.flatMap((c) => c.hs))];
-  const commodityRows: ComtradeRow[] = [];
-  for (const batch of chunk(codes, BATCH_PARTNERS)) {
+  // HS4 codes are already in the AG4 product rows (partner World); only HS6 codes need a query.
+  const hs6 = [...new Set(COMMODITIES.flatMap((c) => c.hs))].filter((h) => h.length === 6);
+  const commodityRows: ComtradeRow[] = productRows.filter((r) => r.partnerCode === 0);
+  for (const batch of hs6.length ? chunk(codes, BATCH_PARTNERS) : []) {
     console.log(`  commodities: reporters ${batch.join(',')}`);
     const res = await query(
       {
         reporterCode: batch.join(','),
         period,
         flowCode: 'X,M',
-        cmdCode: hsCodes.join(','),
+        cmdCode: hs6.join(','),
         partnerCode: '0',
       },
       key,
@@ -366,10 +367,23 @@ export async function runComtrade(): Promise<void> {
   };
   await writeDataset(TRADE_SUMMARY_PATH, meta, summary);
   const reporterIds = new Map([...reporters].map(([id, code]) => [code, id]));
+  const commodityTable = commodityTrade(commodityRows, reporterIds);
+  const commodityYears = Object.values(commodityTable).flatMap((m) =>
+    Object.values(m).flatMap((t) => Object.values(t?.values ?? {}).map((o) => o.year)),
+  );
   await writeDataset(
     RESOURCE_FILES.trade,
-    { ...meta, id: 'comtrade-commodities', title: 'Strategic commodity trade' },
-    commodityTrade(commodityRows, reporterIds),
+    {
+      ...meta,
+      id: 'comtrade-commodities',
+      title: 'Strategic commodity trade',
+      dataYear: commodityYears.length
+        ? `${Math.min(...commodityYears)}–${Math.max(...commodityYears)}`
+        : null,
+      notes:
+        'Exports and imports of each strategic commodity with the world, summing its HS codes (see shared/commodities.ts). Reporter-declared values in US dollars; latest year within 3 years per reporter and commodity. No world total: not every country reports.',
+    },
+    commodityTable,
   );
   await recordInManifest('trade/by-country/', {
     ...meta,

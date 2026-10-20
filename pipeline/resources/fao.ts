@@ -17,16 +17,21 @@ const PRODUCTION = '5510';
 const WORLD_AREA = '5000';
 
 /**
- * Streams the CSV inside a zip, handing each line to `onLine`, so the several-hundred-megabyte
- * file is never held in memory as one string.
+ * Streams the CSV file(s) in a zip accepted by `pick`, handing each line to `onLine`, so a
+ * several-hundred-megabyte file is never held in memory as one string. FAOSTAT archives also
+ * hold code lists (AreaCodes, Elements, Flags…); `pick` keeps them out.
  */
-export function streamZipLines(zip: Uint8Array, onLine: (line: string) => void): void {
+export function streamZipLines(
+  zip: Uint8Array,
+  onLine: (line: string) => void,
+  pick: (name: string) => boolean = (n) => n.toLowerCase().endsWith('.csv'),
+): void {
   const unzip = new Unzip();
   unzip.register(UnzipInflate);
   const decoder = new TextDecoder('utf-8');
   let rest = '';
   unzip.onfile = (file) => {
-    if (!file.name.toLowerCase().endsWith('.csv')) return;
+    if (!pick(file.name)) return;
     file.ondata = (err, chunk, final) => {
       if (err) throw err;
       const text = rest + decoder.decode(chunk, { stream: !final });
@@ -38,6 +43,10 @@ export function streamZipLines(zip: Uint8Array, onLine: (line: string) => void):
   };
   unzip.push(zip, true);
 }
+
+/** The archive's data table, not its code lists. */
+export const isMainDataFile = (name: string): boolean =>
+  /All_Data.*\.csv$/i.test(name) && !/(AreaCodes|Elements|Flags|ItemCodes)/i.test(name);
 
 export interface FaoRow {
   'Area Code': string;
@@ -92,15 +101,22 @@ export async function runFao(): Promise<void> {
   const items = new Set(COMMODITIES.flatMap((c) => (c.faoItem ? [c.faoItem] : [])));
   let header: string | null = null;
   const kept: string[] = [];
-  streamZipLines(data, (line) => {
-    if (header === null) {
-      header = line;
-      return;
-    }
-    // Cheap pre-filter before CSV parsing: production rows of the items we need.
-    if (!line.includes(`"${PRODUCTION}"`) && !line.includes(`,${PRODUCTION},`)) return;
-    kept.push(line);
-  });
+  // Cheap text pre-filter so only a few thousand lines reach the CSV parser: the line must hold
+  // the production element code and one of our item codes as quoted fields.
+  const itemNeedles = [...items].map((i) => `"${i}"`);
+  streamZipLines(
+    data,
+    (line) => {
+      if (header === null) {
+        header = line;
+        return;
+      }
+      if (!line.includes(`"${PRODUCTION}"`)) return;
+      if (!itemNeedles.some((n) => line.includes(n))) return;
+      kept.push(line);
+    },
+    isMainDataFile,
+  );
   if (!header) throw new Error('FAOSTAT archive contained no CSV');
   const rows = (parseCsv([header, ...kept].join('\n')) as unknown as FaoRow[]).filter((r) =>
     items.has(r['Item Code']),

@@ -10,7 +10,7 @@ import { loadAppData, loadTradeProfile, metaFor, type AppData } from './data/loa
 import { buildMacroIndex, SOURCE_LABELS } from './data/macro';
 import { buildResourceIndex, countryResources } from './data/resources';
 import { formatQuantity, formatValue } from './format';
-import { buildClasses, colorFor } from './map/choropleth';
+import { classify } from './map/choropleth';
 import { flowLines } from './map/flows';
 import { toMapFeatures } from './map/geometry';
 import { Legend } from './map/Legend';
@@ -154,45 +154,28 @@ export function App() {
   );
 
   const palette = paletteFor(darkMode);
+  /** The measure shown: the one asked for if the commodity has it, else its first available. */
+  const activeMeasure: Measure = useMemo(() => {
+    const has = activeCommodity ? (resources[activeCommodity] ?? {}) : {};
+    return has[measure] ? measure : (MEASURES.find((m) => has[m]) ?? measure);
+  }, [activeCommodity, measure, resources]);
   const commodityMap = useMemo(() => {
-    const series = activeCommodity ? resources[activeCommodity]?.[measure] : undefined;
+    const series = activeCommodity ? resources[activeCommodity]?.[activeMeasure] : undefined;
     if (!series) return null;
-    const entries = Object.entries(series.table.values).filter(([, o]) => o.value > 0);
-    const ranked = entries.filter(([id]) => isRanked(id)).map(([, o]) => o.value);
-    const bins = buildClasses(
-      ranked,
-      'sequential',
-      palette,
-      entries.map(([, o]) => o.value),
-    );
-    const colors: Record<string, string> = {};
-    for (const [id, o] of entries) {
-      const color = colorFor(o.value, bins);
-      if (color) colors[id] = color;
-    }
-    return { bins, colors, series };
-  }, [activeCommodity, measure, resources, isRanked, palette]);
+    const entries = Object.entries(series.table.values)
+      .filter(([, o]) => o.value > 0)
+      .map(([id, o]) => [id, o.value] as const);
+    return { ...classify(entries, isRanked, 'sequential', palette), series };
+  }, [activeCommodity, activeMeasure, resources, isRanked, palette]);
 
   const choropleth = useMemo(() => {
     if (!activeMetric) return null;
     const def = INDICATOR_BY_KEY[activeMetric];
     const figures = macro[activeMetric];
-    // Class breaks come from sovereign states only; dependencies are coloured but do not shift them.
-    const ranked = Object.entries(figures)
-      .filter(([id]) => {
-        const c = byId.get(id);
-        return c && SOVEREIGN_STATUSES.has(c.status);
-      })
-      .map(([, f]) => f.value);
-    const all = Object.values(figures).map((f) => f.value);
-    const bins = buildClasses(ranked, def.scaleKind, palette, all);
-    const colors: Record<string, string> = {};
-    for (const [id, f] of Object.entries(figures)) {
-      const color = colorFor(f.value, bins);
-      if (color) colors[id] = color;
-    }
+    const entries = Object.entries(figures).map(([id, f]) => [id, f.value] as const);
+    const { bins, colors } = classify(entries, isRanked, def.scaleKind, palette);
     return { def, bins, colors, figures: Object.values(figures) };
-  }, [activeMetric, macro, byId, palette]);
+  }, [activeMetric, macro, isRanked, palette]);
 
   useEffect(() => {
     if (!data || !selectedId) return;
@@ -211,6 +194,11 @@ export function App() {
   }, [data, selectedId, tradeAttempt]);
 
   const select = useCallback((id: string | null) => setSelectedId(id), []);
+  /** Shows a commodity, starting from production; activeMeasure falls back to what it has. */
+  const openCommodity = useCallback((id: string) => {
+    setMode({ kind: 'commodity', id });
+    setMeasure('production');
+  }, []);
   const selectAndFocus = useCallback(
     (id: string) => {
       setSelectedId(id);
@@ -235,7 +223,7 @@ export function App() {
         <>
           <strong>{c.name}</strong>
           <span>
-            {COMMODITY_BY_ID[activeCommodity]!.label} {MEASURE_LABELS[measure].toLowerCase()}:{' '}
+            {COMMODITY_BY_ID[activeCommodity]!.label} {MEASURE_LABELS[activeMeasure].toLowerCase()}:{' '}
             {o
               ? `${formatQuantity(o.value, commodityMap.series.table.unit)} (${o.year})`
               : 'not listed'}
@@ -287,14 +275,7 @@ export function App() {
             }
             available={available}
             commodities={commoditiesLoaded}
-            onChange={(m) => {
-              setMode(m);
-              // Open a commodity on a measure it has, preferring production.
-              if (m.kind === 'commodity') {
-                const has = resources[m.id] ?? {};
-                setMeasure(MEASURES.find((x) => has[x]) ?? 'production');
-              }
-            }}
+            onChange={(m) => (m.kind === 'commodity' ? openCommodity(m.id) : setMode(m))}
           />
         )}
       </header>
@@ -324,7 +305,7 @@ export function App() {
       {activeCommodity && (
         <CommodityCard
           commodity={activeCommodity}
-          measure={measure}
+          measure={activeMeasure}
           index={resources}
           countries={byId}
           isRanked={isRanked}
@@ -364,11 +345,7 @@ export function App() {
           <ResourcesSection
             rows={countryResources(resources, selected.id, isRanked)}
             anyLoaded={commoditiesLoaded.size > 0}
-            onOpenCommodity={(id) => {
-              setMode({ kind: 'commodity', id });
-              const has = resources[id] ?? {};
-              setMeasure(MEASURES.find((x) => has[x]) ?? 'production');
-            }}
+            onOpenCommodity={openCommodity}
           />
           {tradeState === undefined ? (
             <p className="muted small">Loading trade…</p>

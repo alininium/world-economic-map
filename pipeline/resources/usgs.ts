@@ -68,6 +68,15 @@ export function parseUsgsNumber(cell: string | undefined): number | null {
 export interface UsgsResult {
   table: ResourceTable;
   unmatched: string[];
+  /** TYPE values that matched a measure but were not used because another series was. */
+  skipped: string[];
+}
+
+/** Adds rows for one entity: same-year values add up (territories listed apart), else the newer wins. */
+function merge(prev: Observation | undefined, next: Observation): Observation {
+  if (!prev || next.year > prev.year) return next;
+  if (next.year === prev.year) return { value: prev.value + next.value, year: prev.year };
+  return prev;
 }
 
 export function usgsTable(
@@ -78,6 +87,9 @@ export function usgsTable(
   const cols = detectColumns(header);
   const table: ResourceTable = {};
   const unmatched = new Set<string>();
+  const skipped = new Set<string>();
+  /** commodity:measure → the one TYPE value used for it. */
+  const chosenType = new Map<string, string>();
 
   const put = (
     cid: string,
@@ -85,62 +97,53 @@ export function usgsTable(
     unit: string,
     id: string | null,
     obs: Observation,
-    world: boolean,
   ) => {
     const byMeasure = (table[cid] ??= {});
     const t: MeasureTable = (byMeasure[measure] ??= { unit, values: {} });
-    if (world) t.world = obs;
-    else if (id) {
-      const prev = t.values[id];
-      // Several rows can map to one entity (e.g. a territory listed separately); add them.
-      t.values[id] =
-        prev && prev.year === obs.year ? { value: prev.value + obs.value, year: obs.year } : obs;
-    }
+    if (id) t.values[id] = merge(t.values[id], obs);
+    else t.world = merge(t.world, obs);
   };
 
-  for (const r of rows) {
-    const def = COMMODITIES.find((c) => c.usgs?.commodity.test((r[cols.commodity] ?? '').trim()));
-    if (!def?.usgs) continue;
-    const name = (r[cols.country] ?? '').trim();
-    const world = isWorldTotal(name);
-    const id = world || isAggregate(name) ? null : resolve(name);
-    if (!world && !isAggregate(name) && !id) unmatched.add(name);
-    if (!world && !id) continue;
-    const type = r[cols.type] ?? '';
-    const unit = (cols.unit && r[cols.unit]?.trim()) || 'as published';
-    const prodMeasure: Measure | null = def.usgs.mine?.test(type)
-      ? 'production'
-      : def.usgs.refinery?.test(type)
-        ? 'refining'
-        : null;
-    if (prodMeasure) {
+  for (const def of COMMODITIES) {
+    const ref = def.usgs;
+    if (!ref) continue;
+    for (const r of rows) {
+      if (!ref.commodity.test((r[cols.commodity] ?? '').trim())) continue;
+      const name = (r[cols.country] ?? '').trim();
+      const world = isWorldTotal(name);
+      const id = world || isAggregate(name) ? null : resolve(name);
+      if (!world && !isAggregate(name) && !id) unmatched.add(name);
+      if (!world && !id) continue;
+      const type = (r[cols.type] ?? '').trim();
+      const unit = (cols.unit && r[cols.unit]?.trim()) || 'as published';
+      const measure: Measure | null = ref.mine?.test(type)
+        ? 'production'
+        : ref.refinery?.test(type)
+          ? 'refining'
+          : null;
+      if (!measure) continue;
+      const key = `${def.id}:${measure}`;
+      const chosen = chosenType.get(key) ?? type;
+      if (chosen !== type) {
+        skipped.add(`${def.label}: ${type}`);
+        continue;
+      }
+      chosenType.set(key, type);
       for (const p of cols.production) {
         const v = parseUsgsNumber(r[p.name]);
         if (v !== null) {
-          put(def.id, prodMeasure, unit, id, { value: v, year: p.year }, world);
+          put(def.id, measure, unit, id, { value: v, year: p.year });
           break;
         }
       }
-    }
-    if (
-      def.usgs.reserves &&
-      cols.reserves &&
-      (prodMeasure === 'production' || /reserve/i.test(type))
-    ) {
-      const v = parseUsgsNumber(r[cols.reserves.name]);
-      if (v !== null) {
-        put(
-          def.id,
-          'reserves',
-          unit,
-          id,
-          { value: v, year: cols.reserves.year ?? cols.production[0]!.year },
-          world,
-        );
+      if (ref.reserves && measure === 'production' && cols.reserves) {
+        const v = parseUsgsNumber(r[cols.reserves.name]);
+        const year = cols.reserves.year ?? cols.production[0]!.year;
+        if (v !== null) put(def.id, 'reserves', unit, id, { value: v, year });
       }
     }
   }
-  return { table, unmatched: [...unmatched].sort() };
+  return { table, unmatched: [...unmatched].sort(), skipped: [...skipped].sort() };
 }
 
 export async function runUsgs(): Promise<void> {
@@ -150,7 +153,8 @@ export async function runUsgs(): Promise<void> {
   const countries = JSON.parse(
     await readFile(path.join(DATA_DIR, 'countries.json'), 'utf8'),
   ) as Dataset<Country[]>;
-  const { table, unmatched } = usgsTable(parseCsv(body), nameResolver(countries.data));
+  const { table, unmatched, skipped } = usgsTable(parseCsv(body), nameResolver(countries.data));
+  if (skipped.length) console.log(`  other USGS series not used: ${skipped.join('; ')}`);
   if (unmatched.length) {
     console.warn(
       `  country names not matched (left out; add to pipeline/resources/names.ts): ${unmatched.join('; ')}`,

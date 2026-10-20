@@ -24,6 +24,7 @@ import { useMediaQuery } from './useMediaQuery';
 
 // ECharts is only needed once a country is opened; keep it out of the initial bundle.
 const TradeSection = lazy(() => import('./panel/TradeSection'));
+const FdiSection = lazy(() => import('./panel/FdiSection'));
 
 function idFromHash(): string | null {
   try {
@@ -342,6 +343,17 @@ export function App() {
             currencies={data.currencies?.data[selected.id]}
             currencyMeta={data.currencies?.meta}
           />
+          <Suspense fallback={<p className="muted small">Loading investment…</p>}>
+            <FdiSection
+              country={selected}
+              macro={macro}
+              loaded={loaded}
+              manifest={data.manifest}
+              darkMode={darkMode}
+              inflowColor={palette.flowExports}
+              outflowColor={palette.flowImports}
+            />
+          </Suspense>
           <ResourcesSection
             rows={countryResources(resources, selected.id, isRanked)}
             anyLoaded={commoditiesLoaded.size > 0}

@@ -1,7 +1,7 @@
 import { INDICATORS, type CurrencyInfo, type IndicatorKey } from '../../shared/indicators';
 import type { Country, DatasetMeta } from '../../shared/types';
-import { SOURCE_LABELS, sourceLink, type MacroIndex } from '../data/macro';
-import { formatValue } from '../format';
+import type { MacroIndex } from '../data/macro';
+import { FigureRows } from './FigureRows';
 
 interface Props {
   country: Country;
@@ -12,54 +12,15 @@ interface Props {
   currencyMeta: DatasetMeta | undefined;
 }
 
-/** Older than this, a figure is flagged as possibly out of date. */
-const STALE_YEARS = 4;
+const MACRO_DEFS = INDICATORS.filter((d) => (d.section ?? 'macro') === 'macro');
 
 export function MacroSnapshot({ country, macro, loaded, currencies, currencyMeta }: Props) {
-  const thisYear = new Date().getFullYear();
   return (
     <section>
       <h3>Macro snapshot</h3>
       <table className="figures">
         <tbody>
-          {INDICATORS.map((def) => {
-            const fig = macro[def.key][country.id];
-            return (
-              <tr key={def.key}>
-                <th scope="row" title={def.description}>
-                  {def.label}
-                </th>
-                <td className="figure-value">
-                  {fig ? (
-                    formatValue(fig.value, def.unit)
-                  ) : (
-                    <span className="missing">No data</span>
-                  )}
-                </td>
-                <td className="figure-source">
-                  {fig ? (
-                    <>
-                      <span className={thisYear - fig.year > STALE_YEARS ? 'stale' : undefined}>
-                        {fig.year}
-                      </span>{' '}
-                      ·{' '}
-                      <a
-                        href={sourceLink(fig.source, fig.code, country)}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {SOURCE_LABELS[fig.source]}
-                      </a>
-                    </>
-                  ) : loaded.has(def.key) ? (
-                    'Not reported'
-                  ) : (
-                    'Source not loaded'
-                  )}
-                </td>
-              </tr>
-            );
-          })}
+          <FigureRows defs={MACRO_DEFS} country={country} macro={macro} loaded={loaded} />
           <tr>
             <th scope="row">Currency</th>
             <td className="figure-value">
@@ -81,7 +42,7 @@ export function MacroSnapshot({ country, macro, loaded, currencies, currencyMeta
           </tr>
         </tbody>
       </table>
-      {loaded.size < INDICATORS.length && (
+      {INDICATORS.some((d) => !loaded.has(d.key)) && (
         <p className="note">
           Some sources have not been downloaded yet. Run <code>npm run data:refresh macro</code>.
         </p>

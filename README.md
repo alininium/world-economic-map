@@ -5,9 +5,9 @@ macro indicators, trade, strategic resources, foreign investment and production 
 It is a static site: a data pipeline downloads and normalizes public datasets into versioned
 JSON files under `data/`, and the browser app reads only those files.
 
-> **Status:** milestones 1–4: a clickable world map with search, a choropleth with legend, a
-> commodity view, and a country panel with a macro snapshot, strategic resources, trade charts
-> and trade-flow lines. See the [Roadmap](#roadmap) and
+> **Status:** milestones 1–5: a clickable world map with search, a choropleth with legend, a
+> commodity view, and a country panel with a macro snapshot, foreign investment, strategic
+> resources, trade charts and trade-flow lines. See the [Roadmap](#roadmap) and
 > [Data status](#data-status).
 
 ## Running it
@@ -138,6 +138,25 @@ the source too.
   with zero as a class boundary. Grey means no data. The ramps were checked with a palette
   validator (lightness steps, contrast against the ocean) in both light and dark themes.
 
+## Foreign investment
+
+FDI comes from the World Bank's balance-of-payments series:
+
+- net inflows, `BX.KLT.DINV.CD.WD`, and as % of GDP, `BX.KLT.DINV.WD.GD.ZS`
+- net outflows, `BM.KLT.DINV.CD.WD`, and as % of GDP, `BM.KLT.DINV.WD.GD.ZS`
+
+All four are choropleth metrics. The panel shows the latest figures, net (in − out) when the
+years match, and a ten-year chart of inflows and outflows. The `worldbank` step writes that
+history to `data/macro/worldbank-history.json`, and the app loads it on demand.
+
+**Not yet covered: FDI stock, top investor and recipient countries, and investment-flow lines
+on the map.** The sources for these are the IMF's Direct Investment Positions (formerly CDIS)
+and UNCTAD's FDI statistics. Neither could be reached from the build environment to confirm its
+query format or file layout. Writing parsers for unseen formats would be guesswork, so this is
+left as the next data task: fetch the DIP data structure from `api.imf.org`, confirm the
+dimension order, then add a `dip` pipeline step and partner lines that reuse the trade-flow
+layer.
+
 ## Trade
 
 The `trade` step queries the [UN Comtrade](https://comtradeplus.un.org/) v1 API for annual HS
@@ -234,7 +253,7 @@ MVP:
 2. ✅ Macro indicators pipeline → choropleth with legend, macro snapshot in the panel
 3. ✅ Trade: top products and partners, charts, trade-flow lines
 4. ✅ Strategic resources and the commodity view
-5. FDI
+5. ✅ FDI flows (stock and partners pending, see above)
 6. Production chains (hybrid of trade-derived roles and curated, cited notes)
 7. Comparison mode, polish, accessibility, performance
 

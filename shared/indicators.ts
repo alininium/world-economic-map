@@ -19,7 +19,10 @@ export type IndicatorKey =
   | 'population'
   | 'tradeBalance'
   | 'exportConcentration'
-  | 'fdiInflows';
+  | 'fdiInflows'
+  | 'fdiInflowsPct'
+  | 'fdiOutflows'
+  | 'fdiOutflowsPct';
 
 export type Unit = 'usd' | 'intl_usd' | 'percent' | 'percent_gdp' | 'people' | 'index';
 
@@ -45,6 +48,10 @@ export interface IndicatorDef {
   choropleth: boolean;
   series: SeriesRef[];
   description: string;
+  /** Panel section the figure belongs to (default: the macro snapshot). */
+  section?: 'macro' | 'fdi';
+  /** Keep a yearly history (World Bank series only) for the panel chart. */
+  history?: boolean;
 }
 
 const wb = (code: string): SeriesRef => ({ source: 'worldbank', code });
@@ -159,8 +166,42 @@ export const INDICATORS: readonly IndicatorDef[] = [
     scaleKind: 'diverging',
     choropleth: true,
     series: [wb('BX.KLT.DINV.CD.WD')],
+    section: 'fdi',
+    history: true,
     description:
       'Net inflows of foreign direct investment (balance of payments), current US dollars. Negative when foreign investors withdraw more than they invest.',
+  },
+  {
+    key: 'fdiInflowsPct',
+    label: 'FDI net inflows / GDP',
+    unit: 'percent_gdp',
+    scaleKind: 'diverging',
+    choropleth: true,
+    series: [wb('BX.KLT.DINV.WD.GD.ZS')],
+    section: 'fdi',
+    description: 'Net FDI inflows as a share of GDP.',
+  },
+  {
+    key: 'fdiOutflows',
+    label: 'FDI net outflows',
+    unit: 'usd',
+    scaleKind: 'diverging',
+    choropleth: true,
+    series: [wb('BM.KLT.DINV.CD.WD')],
+    section: 'fdi',
+    history: true,
+    description:
+      'Net outflows of foreign direct investment by residents (balance of payments), current US dollars.',
+  },
+  {
+    key: 'fdiOutflowsPct',
+    label: 'FDI net outflows / GDP',
+    unit: 'percent_gdp',
+    scaleKind: 'diverging',
+    choropleth: true,
+    series: [wb('BM.KLT.DINV.WD.GD.ZS')],
+    section: 'fdi',
+    description: 'Net FDI outflows as a share of GDP.',
   },
 ];
 
@@ -193,3 +234,8 @@ export interface CurrencyInfo {
 
 /** Country id → currencies in legal use (ISO 4217). */
 export type CurrencyTable = Record<string, CurrencyInfo[]>;
+
+/** Series code → country id → yearly observations, oldest first. */
+export type HistoryTable = Record<string, Record<string, Observation[]>>;
+
+export const WB_HISTORY_PATH = 'macro/worldbank-history.json';

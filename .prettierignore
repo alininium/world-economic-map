@@ -1,0 +1,4 @@
+data/
+dist/
+pipeline/.cache/
+package-lock.json

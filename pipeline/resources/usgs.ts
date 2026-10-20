@@ -95,7 +95,7 @@ export function usgsTable(
   const table: ResourceTable = {};
   const unmatched = new Set<string>();
   const skipped = new Set<string>();
-  /** commodity:measure → the one series (TYPE without an "estimated" flag) used for it. */
+  /** commodity:measure → the one series (measure plus TYPE without an "estimated" flag) used for it. */
   const chosenType = new Map<string, string>();
 
   const put = (
@@ -114,6 +114,14 @@ export function usgsTable(
   for (const def of COMMODITIES) {
     const ref = def.usgs;
     if (!ref) continue;
+    const candidates: {
+      r: Record<string, string>;
+      id: string | null;
+      type: string;
+      unit: string;
+      measure: Measure;
+      key: string;
+    }[] = [];
     for (const r of rows) {
       if (!ref.commodity.test((r[cols.commodity] ?? '').trim())) continue;
       const name = (r[cols.country] ?? '').trim();
@@ -129,14 +137,28 @@ export function usgsTable(
           ? 'refining'
           : null;
       if (!measure) continue;
-      const key = `${def.id}:${measure}`;
-      const series = seriesKey(type);
-      const chosen = chosenType.get(key) ?? series;
-      if (chosen !== series) {
+      candidates.push({ r, id, type, unit, measure, key: `${measure}:${seriesKey(type)}` });
+    }
+
+    // One series per measure: the one carrying the world total, else the one with most rows.
+    // A lone row labelled differently (USGS lists US cobalt as "Mine production, estimated")
+    // must not decide the series for every other country.
+    const score = new Map<string, number>();
+    for (const c of candidates) {
+      score.set(c.key, (score.get(c.key) ?? 0) + (c.id === null ? 1e6 : 1));
+    }
+    for (const c of candidates) {
+      const best = chosenType.get(`${def.id}:${c.measure}`);
+      if (best === undefined || score.get(c.key)! > score.get(best)!) {
+        chosenType.set(`${def.id}:${c.measure}`, c.key);
+      }
+    }
+
+    for (const { r, id, type, unit, measure, key } of candidates) {
+      if (chosenType.get(`${def.id}:${measure}`) !== key) {
         skipped.add(`${def.label}: ${type}`);
         continue;
       }
-      chosenType.set(key, series);
       for (const p of cols.production) {
         const v = parseUsgsNumber(r[p.name]);
         if (v !== null) {

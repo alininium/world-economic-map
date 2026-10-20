@@ -161,6 +161,22 @@ describe('USGS world data', () => {
     expect(r.skipped).toEqual([]);
   });
 
+  it('follows the series with the world total, not a differently labelled first row', () => {
+    // As in MCS 2025: the US row comes first and is labelled unlike all the others.
+    const r = usgsTable(
+      [
+        row('Indonesia', 'Mine production, estimated', '', '300', '70'),
+        row('Congo (Kinshasa)', 'Mine production, cobalt content, estimated', '', '9000', '600'),
+        row('World total (rounded)', 'Mine production, cobalt content, estimated', '', '9900', ''),
+      ],
+      resolve,
+    );
+    expect(r.table.cobalt?.production?.values).toEqual({ COD: { value: 9000, year: 2024 } });
+    expect(r.table.cobalt?.production?.world).toEqual({ value: 9900, year: 2024 });
+    expect(r.table.cobalt?.reserves?.values).toEqual({ COD: { value: 600, year: 2024 } });
+    expect(r.skipped).toEqual(['Cobalt: Mine production, estimated']);
+  });
+
   it('never lets an older row overwrite a newer one for the same country', () => {
     const r = usgsTable(
       [

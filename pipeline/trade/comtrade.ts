@@ -11,7 +11,7 @@ import {
 } from '../../shared/trade';
 import type { DatasetMeta } from '../../shared/types';
 import { cachedFetch } from '../lib/fetch';
-import { rm } from 'node:fs/promises';
+import { rename, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { DATA_DIR, readCountryIds, recordInManifest, writeDataset, writeRaw } from '../lib/write';
 
@@ -400,7 +400,10 @@ export async function runComtrade(): Promise<void> {
   const productBy = byReporter(productRows);
   // Every download succeeded; replace the old profiles so countries that stopped
   // reporting do not keep a stale file.
-  await rm(path.join(DATA_DIR, 'trade/by-country'), { recursive: true, force: true });
+  // Profiles go to a staging directory first and replace the old ones only once all are
+  // written, so a failure part-way leaves the previous profiles untouched.
+  const staging = 'trade/by-country.new';
+  await rm(path.join(DATA_DIR, staging), { recursive: true, force: true });
   for (const [id, code] of reporters) {
     const mineP = partnerBy.get(code) ?? [];
     const year = latestYear(mineP, code);
@@ -413,7 +416,7 @@ export async function runComtrade(): Promise<void> {
       partners,
       products,
     );
-    await writeRaw(tradeProfilePath(id), profile);
+    await writeRaw(tradeProfilePath(id).replace('trade/by-country/', `${staging}/`), profile);
     years.push(year);
     if (profile.exports.total)
       summary[TRADE_SERIES.exportsTotal]![id] = { value: profile.exports.total, year };
@@ -473,6 +476,8 @@ export async function runComtrade(): Promise<void> {
     },
     chainTable,
   );
+  await rm(path.join(DATA_DIR, 'trade/by-country'), { recursive: true, force: true });
+  await rename(path.join(DATA_DIR, staging), path.join(DATA_DIR, 'trade/by-country'));
   await recordInManifest('trade/by-country/', {
     ...meta,
     id: 'comtrade-profiles',

@@ -35,6 +35,7 @@ Other scripts:
 | `npm run lint`         | ESLint                                            |
 | `npm run format`       | Prettier (`format:check` verifies only)           |
 | `npm run data:refresh` | Re-download and rebuild every dataset in `data/`  |
+| `npm run data:check`   | Sanity-check every dataset in the manifest        |
 
 ## Refreshing data
 
@@ -63,7 +64,11 @@ network can't reach a source.
 1. Start it from the Actions tab: Refresh data → Run workflow. Optionally name the steps, e.g.
    `macro resources`.
 2. To include trade, add a `COMTRADE_API_KEY` repository secret.
-3. For the pull request to open automatically, enable _Settings → Actions → General → Allow
+3. The run checks the new data (`data:check`), lint, tests and build before publishing. The
+   publish job, which holds the write token, runs no npm code. Because the PR is opened with the
+   workflow token, the regular CI does not start on it automatically. The same checks have
+   already passed in the run.
+4. For the pull request to open automatically, enable _Settings → Actions → General → Allow
    GitHub Actions to create and approve pull requests_. Otherwise the branch
    `data-refresh/<run id>` is pushed and you can open the PR yourself.
 

@@ -626,6 +626,11 @@ body,
   margin-bottom: 6px;
 }
 
+.brief-text {
+  margin: 0.25rem 0 0.4rem;
+  line-height: 1.5;
+}
+
 .citations {
   font-size: 0.72rem;
   color: var(--muted);

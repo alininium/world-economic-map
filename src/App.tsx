@@ -22,6 +22,7 @@ import type { FocusRequest } from './map/WorldMap';
 import { CompareTray } from './compare/CompareTray';
 import { CompareView } from './compare/CompareView';
 import { compareFromUrl, toggleCompare, validCompare as pickValid } from './compare/compare';
+import { BriefSection } from './panel/BriefSection';
 import { ChainSection } from './panel/ChainSection';
 import { CountryPanel } from './panel/CountryPanel';
 import { MacroSnapshot } from './panel/MacroSnapshot';
@@ -221,6 +222,10 @@ export function App() {
   }, [activeCommodity, activeMeasure, resources, isRanked, palette]);
 
   const chainNotes = useMemo(() => data?.chainNotes?.data ?? [], [data]);
+  const briefsById = useMemo(
+    () => new Map((data?.briefs?.data ?? []).map((b) => [b.id, b])),
+    [data],
+  );
   const chainTrade = data?.chainTrade?.data ?? null;
   const chainsAvailable = !!(data?.chainNotes || data?.chainTrade);
   const activeChain = mode.kind === 'chain' && chainsAvailable ? mode.id : null;
@@ -509,6 +514,13 @@ export function App() {
           inCompare={validCompare.includes(selected.id)}
           onToggleCompare={() => setCompareIds(toggleCompare(validCompare, selected.id))}
           onSelect={selectAndFocus}
+          brief={
+            <BriefSection
+              brief={briefsById.get(selected.id)}
+              loaded={!!data.briefs}
+              meta={data.briefs?.meta}
+            />
+          }
         >
           <MacroSnapshot
             country={selected}

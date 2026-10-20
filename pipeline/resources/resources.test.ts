@@ -144,6 +144,23 @@ describe('USGS world data', () => {
     expect(r.table.palladium?.production?.world).toEqual({ value: 2000, year: 2024 });
   });
 
+  it('treats rows flagged as estimated as the same series', () => {
+    const r = usgsTable(
+      [
+        row('Indonesia', 'Mine production, cobalt content', '', '500', ''),
+        row('Congo (Kinshasa)', 'Mine production, cobalt content, estimated', '', '9000', ''),
+        row('World total (rounded)', 'Mine production, cobalt content (estimated)', '', '9900', ''),
+      ],
+      resolve,
+    );
+    expect(r.table.cobalt?.production?.values).toEqual({
+      IDN: { value: 500, year: 2024 },
+      COD: { value: 9000, year: 2024 },
+    });
+    expect(r.table.cobalt?.production?.world).toEqual({ value: 9900, year: 2024 });
+    expect(r.skipped).toEqual([]);
+  });
+
   it('never lets an older row overwrite a newer one for the same country', () => {
     const r = usgsTable(
       [
@@ -176,6 +193,18 @@ describe('FAOSTAT', () => {
     streamZipLines(zip, (l) => lines.push(l), isMainDataFile);
     expect(lines).toHaveLength(5);
     expect(lines[0]).toContain('Area Code (M49)');
+  });
+
+  it('splits lines correctly when reading in slices smaller than a line', () => {
+    // Multi-byte characters must survive being cut between slices.
+    const text =
+      csv + '"107","\'384","Côte d’Ivoire","15","Wheat","5510","Production","2023","t","1"';
+    const zip = zipSync({
+      'Production_Crops_Livestock_E_All_Data_(Normalized).csv': strToU8(text),
+    });
+    const sliced: string[] = [];
+    streamZipLines(zip, (l) => sliced.push(l), isMainDataFile, 7);
+    expect(sliced).toEqual(text.split('\n'));
   });
 
   it('maps M49 codes, keeps production only and reads the world total', () => {

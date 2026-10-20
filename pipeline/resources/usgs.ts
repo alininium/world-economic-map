@@ -65,6 +65,13 @@ export function parseUsgsNumber(cell: string | undefined): number | null {
   return /^-?\d+(\.\d+)?$/.test(cleaned) ? Number(cleaned) : null;
 }
 
+/** USGS flags some countries' rows of a series as estimated; they are still the same series. */
+export const seriesKey = (type: string): string =>
+  type
+    .replace(/[\s,;]*\(?\b(estimated|estimate|est\.?)\)?\s*$/i, '')
+    .trim()
+    .toLowerCase();
+
 export interface UsgsResult {
   table: ResourceTable;
   unmatched: string[];
@@ -88,7 +95,7 @@ export function usgsTable(
   const table: ResourceTable = {};
   const unmatched = new Set<string>();
   const skipped = new Set<string>();
-  /** commodity:measure → the one TYPE value used for it. */
+  /** commodity:measure → the one series (TYPE without an "estimated" flag) used for it. */
   const chosenType = new Map<string, string>();
 
   const put = (
@@ -123,12 +130,13 @@ export function usgsTable(
           : null;
       if (!measure) continue;
       const key = `${def.id}:${measure}`;
-      const chosen = chosenType.get(key) ?? type;
-      if (chosen !== type) {
+      const series = seriesKey(type);
+      const chosen = chosenType.get(key) ?? series;
+      if (chosen !== series) {
         skipped.add(`${def.label}: ${type}`);
         continue;
       }
-      chosenType.set(key, type);
+      chosenType.set(key, series);
       for (const p of cols.production) {
         const v = parseUsgsNumber(r[p.name]);
         if (v !== null) {

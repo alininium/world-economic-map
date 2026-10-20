@@ -6,6 +6,13 @@ const CACHE_DIR = path.resolve(import.meta.dirname, '../.cache');
 
 /** Minimum gap between requests to the same host, to stay well inside public rate limits. */
 const MIN_INTERVAL_MS = 1000;
+
+/**
+ * Identifies the pipeline to data providers; some (the IMF's site) refuse Node's default
+ * User-Agent with HTTP 403.
+ */
+export const USER_AGENT =
+  'world-economic-map-data-pipeline/0.1 (+https://github.com/alininium/world-economic-map)';
 const lastRequest = new Map<string, number>();
 
 /** When true, sources already in pipeline/.cache are reused instead of downloaded again. */
@@ -76,7 +83,7 @@ async function download(
   for (let attempt = 0; ; attempt++) {
     await politeDelay(url);
     try {
-      const res = await fetch(url, { headers: opts.headers });
+      const res = await fetch(url, { headers: { 'User-Agent': USER_AGENT, ...opts.headers } });
       if (!res.ok) throw new HttpError(res.status, url);
       const data = Buffer.from(await res.arrayBuffer());
       await mkdir(CACHE_DIR, { recursive: true });

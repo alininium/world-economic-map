@@ -45,6 +45,9 @@ cleans and normalizes them, and writes files to `data/`. Requests to the same ho
 at least one second apart. Rate limiting (429), server errors and network failures are retried
 with exponential backoff; other HTTP errors fail at once.
 
+A full refresh (no step named) skips steps whose API key isn't set and says so. Naming such a
+step explicitly without its key is an error.
+
 If a step fails, for example because a source is unreachable, its existing files in `data/`
 are left untouched, the remaining steps still run, and the command exits non-zero.
 `retrievedAt` is always the date the response was actually downloaded, including with

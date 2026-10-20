@@ -11,12 +11,18 @@ import { runImf } from './macro/imf';
 import { runWorldBank } from './macro/worldbank';
 import { runComtrade } from './trade/comtrade';
 
-const STEPS: Record<string, () => Promise<void>> = {
-  geo: runGeo,
-  worldbank: runWorldBank,
-  imf: runImf,
-  currencies: runCurrencies,
-  trade: runComtrade,
+interface Step {
+  run: () => Promise<void>;
+  /** Environment variable the step needs; a full refresh skips the step when it is unset. */
+  needs?: string;
+}
+
+const STEPS: Record<string, Step> = {
+  geo: { run: runGeo },
+  worldbank: { run: runWorldBank },
+  imf: { run: runImf },
+  currencies: { run: runCurrencies },
+  trade: { run: runComtrade, needs: 'COMTRADE_API_KEY' },
 };
 
 /** Shorthands for several steps. */
@@ -36,9 +42,15 @@ if (unknown.length) {
   process.exit(1);
 }
 const failed: string[] = [];
-for (const name of requested.length ? requested : Object.keys(STEPS)) {
+const runAll = requested.length === 0;
+for (const name of runAll ? Object.keys(STEPS) : requested) {
+  const step = STEPS[name]!;
+  if (runAll && step.needs && !process.env[step.needs]) {
+    console.log(`– ${name}: skipped, ${step.needs} is not set (see .env.example)`);
+    continue;
+  }
   try {
-    await STEPS[name]!();
+    await step.run();
   } catch (err) {
     console.error(`✗ ${name}: ${(err as Error).message}`);
     failed.push(name);

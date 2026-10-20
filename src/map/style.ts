@@ -157,6 +157,9 @@ export function buildStyle(
           // 1.5 px for small partners up to 6 px for a partner taking half the trade.
           'line-width': ['interpolate', ['linear'], ['get', 'share'], 0, 1.5, 0.5, 6],
           'line-opacity': 0.85,
+          // Import lines run partner → country, so the same offset puts them on the other side
+          // of an export line to the same partner instead of on top of it.
+          'line-offset': 3,
         },
       },
       {

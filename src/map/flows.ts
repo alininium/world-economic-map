@@ -43,6 +43,8 @@ export function greatCircle(a: LngLat, b: LngLat, segments = 64): LngLat[] {
 
 export interface FlowProps {
   flow: 'exports' | 'imports';
+  /** The selected country the lines belong to. */
+  origin: string;
   partner: string;
   share: number;
 }
@@ -61,13 +63,13 @@ export function flowLines(
       .slice(0, perFlow);
     for (const p of partners) {
       const dest = countries.get(p.partnerId!)!;
-      // Exports run from the country to the partner, imports from the partner to the country.
-      const [from, to] =
-        flow === 'exports' ? [origin.label, dest.label] : [dest.label, origin.label];
+      // Always unwrap from the selected country so every line starts in the same world copy;
+      // import lines are then reversed to run from the partner to the country.
+      const path = greatCircle(origin.label, dest.label);
       features.push({
         type: 'Feature',
-        geometry: { type: 'LineString', coordinates: greatCircle(from, to) },
-        properties: { flow, partner: dest.id, share: p.share },
+        geometry: { type: 'LineString', coordinates: flow === 'exports' ? path : path.reverse() },
+        properties: { flow, origin: origin.id, partner: dest.id, share: p.share },
       });
     }
   }

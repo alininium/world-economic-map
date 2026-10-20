@@ -9,7 +9,9 @@ import {
 } from '../../shared/trade';
 import type { DatasetMeta } from '../../shared/types';
 import { cachedFetch } from '../lib/fetch';
-import { readCountryIds, recordInManifest, writeDataset, writeRaw } from '../lib/write';
+import { rm } from 'node:fs/promises';
+import path from 'node:path';
+import { DATA_DIR, readCountryIds, recordInManifest, writeDataset, writeRaw } from '../lib/write';
 
 const API = 'https://comtradeapi.un.org/data/v1/get/C/A/HS';
 const REF = 'https://comtradeapi.un.org/files/v1/app/reference';
@@ -121,6 +123,17 @@ function topEntries(
     .sort((a, b) => b.value - a.value)
     .slice(0, TOP_N)
     .map((i) => ({ ...i, share: i.value / total }));
+}
+
+/** Groups rows by reporter once, so each profile only scans its own rows. */
+export function byReporter(rows: readonly ComtradeRow[]): Map<number, ComtradeRow[]> {
+  const out = new Map<number, ComtradeRow[]>();
+  for (const r of rows) {
+    const list = out.get(r.reporterCode);
+    if (list) list.push(r);
+    else out.set(r.reporterCode, [r]);
+  }
+  return out;
 }
 
 /** Herfindahl–Hirschman index over all product shares (0–1). */
@@ -251,14 +264,20 @@ export async function runComtrade(): Promise<void> {
     [TRADE_SERIES.exportConcentration]: {},
   };
   const years: number[] = [];
+  const partnerBy = byReporter(partnerRows);
+  const productBy = byReporter(productRows);
+  // Every download succeeded; replace the old profiles so countries that stopped
+  // reporting do not keep a stale file.
+  await rm(path.join(DATA_DIR, 'trade/by-country'), { recursive: true, force: true });
   for (const [id, code] of reporters) {
-    const year = latestYear(partnerRows, code);
+    const mineP = partnerBy.get(code) ?? [];
+    const year = latestYear(mineP, code);
     if (year === null) continue;
     const { profile, exportHhi } = buildProfile(
       code,
       year,
-      partnerRows,
-      productRows,
+      mineP,
+      productBy.get(code) ?? [],
       partners,
       products,
     );

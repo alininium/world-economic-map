@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { TradeEntry, TradeProfile } from '../../shared/trade';
 import type { DatasetMeta } from '../../shared/types';
 import { BarChart, type BarItem } from '../charts/BarChart';
@@ -6,6 +6,9 @@ import { formatValue } from '../format';
 
 interface Props {
   profile: TradeProfile | null;
+  /** Set when the profile failed to load (network or server error), as opposed to not existing. */
+  error?: string;
+  onRetry: () => void;
   meta: DatasetMeta | undefined;
   darkMode: boolean;
   colors: { exports: string; imports: string };
@@ -15,6 +18,8 @@ interface Props {
 
 type Flow = 'exports' | 'imports';
 
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
 const pct = (share: number) => `${(share * 100).toFixed(share < 0.1 ? 1 : 0)}%`;
 
 function toBars(entries: readonly TradeEntry[]): BarItem[] {
@@ -22,7 +27,8 @@ function toBars(entries: readonly TradeEntry[]): BarItem[] {
     label: e.name,
     value: e.value,
     note: pct(e.share),
-    detail: `${e.name}<br/>${formatValue(e.value, 'usd')} · ${pct(e.share)}`,
+    // ECharts renders tooltips as HTML; source names can contain '<' or '&'.
+    detail: `${escapeHtml(e.name)}<br/>${formatValue(e.value, 'usd')} · ${pct(e.share)}`,
   }));
 }
 
@@ -53,6 +59,8 @@ function EntryTable({ entries, caption }: { entries: readonly TradeEntry[]; capt
 /** Top products and partners for one flow, as bar charts or tables. Lazy-loaded with ECharts. */
 export default function TradeSection({
   profile,
+  error,
+  onRetry,
   meta,
   darkMode,
   colors,
@@ -61,6 +69,9 @@ export default function TradeSection({
 }: Props) {
   const [flow, setFlow] = useState<Flow>('exports');
   const [asTable, setAsTable] = useState(false);
+  const side = profile?.[flow];
+  const productBars = useMemo(() => toBars(side?.products ?? []), [side]);
+  const partnerBars = useMemo(() => toBars(side?.partners ?? []), [side]);
 
   if (!meta) {
     return (
@@ -72,7 +83,18 @@ export default function TradeSection({
       </section>
     );
   }
-  if (!profile) {
+  if (error) {
+    return (
+      <section>
+        <h3>Trade in goods</h3>
+        <p className="missing">Could not load trade data ({error}).</p>
+        <button type="button" className="link" onClick={onRetry}>
+          Retry
+        </button>
+      </section>
+    );
+  }
+  if (!profile || !side) {
     return (
       <section>
         <h3>Trade in goods</h3>
@@ -81,7 +103,6 @@ export default function TradeSection({
     );
   }
 
-  const side = profile[flow];
   const balance =
     profile.exports.total !== null && profile.imports.total !== null
       ? profile.exports.total - profile.imports.total
@@ -133,7 +154,7 @@ export default function TradeSection({
             <EntryTable entries={side.products} caption={`Top ${flow} products`} />
           ) : (
             <BarChart
-              items={toBars(side.products)}
+              items={productBars}
               color={colors[flow]}
               darkMode={darkMode}
               ariaLabel={`Top ${flow} products by value`}
@@ -146,7 +167,7 @@ export default function TradeSection({
             <EntryTable entries={side.partners} caption={`Top ${flow} partners`} />
           ) : (
             <BarChart
-              items={toBars(side.partners)}
+              items={partnerBars}
               color={colors[flow]}
               darkMode={darkMode}
               ariaLabel={`Top ${flow} partners by value`}

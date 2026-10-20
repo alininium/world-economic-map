@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildProfile,
+  byReporter,
   hhi,
   hsNames,
   latestYear,
@@ -160,5 +161,17 @@ describe('buildProfile', () => {
   it('marks a flow without a world total as missing', () => {
     const { profile: p } = buildProfile(842, 2024, partnerRows.slice(0, 4), [], partners, products);
     expect(p.imports).toEqual({ total: null, products: [], partners: [] });
+  });
+});
+
+describe('byReporter', () => {
+  it('groups rows by reporter code', () => {
+    const groups = byReporter([
+      row({ reporterCode: 1 }),
+      row({ reporterCode: 2 }),
+      row({ reporterCode: 1, partnerCode: 5 }),
+    ]);
+    expect(groups.get(1)).toHaveLength(2);
+    expect(groups.get(2)).toHaveLength(1);
   });
 });

@@ -74,4 +74,21 @@ describe('flowLines', () => {
     expect(imp[0]![0]).toBeCloseTo(20);
     expect(imp.at(-1)![0]).toBeCloseTo(0);
   });
+
+  it('keeps import and export lines in the same world copy across the Pacific', () => {
+    const pacific = new Map([
+      ['USA', country('USA', [-98, 39])],
+      ['CHN', country('CHN', [104, 35])],
+    ]);
+    const chn = { code: 'CHN', name: 'C', value: 1, share: 1, partnerId: 'CHN' };
+    const both: TradeProfile = {
+      year: 2024,
+      exports: { total: 1, products: [], partners: [chn] },
+      imports: { total: 1, products: [], partners: [chn] },
+    };
+    const [exp, imp] = flowLines(pacific.get('USA')!, both, pacific).features;
+    expect(exp!.geometry.coordinates[0]![0]).toBeCloseTo(-98);
+    expect(imp!.geometry.coordinates.at(-1)![0]).toBeCloseTo(-98);
+    expect(imp!.geometry.coordinates[0]![0]).toBeCloseTo(exp!.geometry.coordinates.at(-1)![0]!);
+  });
 });

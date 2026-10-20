@@ -53,7 +53,8 @@ export function formatBreak(value: number, unit: Unit): string {
   if (unit === 'percent' || unit === 'percent_gdp') {
     return `${value < 0 ? '−' : ''}${trim(Math.abs(value))}%`;
   }
-  if (unit === 'index') return value.toFixed(2);
+  // Concentration indices cluster near zero; three significant digits keep breaks distinct.
+  if (unit === 'index') return String(Number(value.toPrecision(3)));
   const prefix = unit === 'usd' ? '$' : unit === 'intl_usd' ? 'Int$' : '';
   return `${value < 0 ? '−' : ''}${prefix}${compact(Math.abs(value))}`;
 }

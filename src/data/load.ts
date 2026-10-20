@@ -59,19 +59,18 @@ export function metaFor(manifest: Manifest, relPath: string): DatasetMeta | unde
 
 /**
  * Loads one country's trade profile. Resolves to null when the pipeline has produced no
- * profiles, or none for this country (it did not report to UN Comtrade recently).
+ * profiles, or none for this country (it did not report to UN Comtrade recently). Rejects on
+ * network or server errors, so the UI can offer a retry instead of claiming there is no data.
  */
 export async function loadTradeProfile(
   manifest: Manifest,
   id: string,
 ): Promise<TradeProfile | null> {
   if (!metaFor(manifest, 'trade/by-country/')) return null;
-  try {
-    const res = await fetch(`${import.meta.env.BASE_URL}${tradeProfilePath(id)}`);
-    // The dev server answers unknown paths with index.html, so check the type too.
-    if (!res.ok || !res.headers.get('content-type')?.includes('json')) return null;
-    return (await res.json()) as TradeProfile;
-  } catch {
-    return null;
-  }
+  const res = await fetch(`${import.meta.env.BASE_URL}${tradeProfilePath(id)}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  // The dev server answers unknown paths with index.html instead of a 404.
+  if (!res.headers.get('content-type')?.includes('json')) return null;
+  return (await res.json()) as TradeProfile;
 }

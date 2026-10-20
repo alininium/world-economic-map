@@ -50,7 +50,13 @@ export function App() {
   });
   const darkMode = useMediaQuery('(prefers-color-scheme: dark)');
   /** The selected country's trade profile; `profile` is null when it has none. */
-  const [trade, setTrade] = useState<{ id: string; profile: TradeProfile | null } | null>(null);
+  const [trade, setTrade] = useState<{
+    id: string;
+    profile: TradeProfile | null;
+    error?: string;
+  } | null>(null);
+  /** Bumped by "Retry" to reload the trade profile. */
+  const [tradeAttempt, setTradeAttempt] = useState(0);
   const [showFlows, setShowFlows] = useState(true);
   const panelRef = useRef<HTMLElement>(null);
 
@@ -143,13 +149,18 @@ export function App() {
   useEffect(() => {
     if (!data || !selectedId) return;
     let cancelled = false;
-    loadTradeProfile(data.manifest, selectedId).then((profile) => {
-      if (!cancelled) setTrade({ id: selectedId, profile });
-    });
+    loadTradeProfile(data.manifest, selectedId).then(
+      (profile) => {
+        if (!cancelled) setTrade({ id: selectedId, profile });
+      },
+      (err: Error) => {
+        if (!cancelled) setTrade({ id: selectedId, profile: null, error: err.message });
+      },
+    );
     return () => {
       cancelled = true;
     };
-  }, [data, selectedId]);
+  }, [data, selectedId, tradeAttempt]);
 
   const select = useCallback((id: string | null) => setSelectedId(id), []);
   const selectAndFocus = useCallback(
@@ -191,7 +202,8 @@ export function App() {
 
   const selected = selectedId ? byId.get(selectedId) : undefined;
   const boundariesMeta = data && metaFor(data.manifest, 'geo/countries.topo.json');
-  const tradeProfile = trade && trade.id === selectedId ? trade.profile : undefined;
+  const tradeState = trade && trade.id === selectedId ? trade : undefined;
+  const tradeProfile = tradeState?.profile;
   const flows = useMemo(
     () => (selected && tradeProfile && showFlows ? flowLines(selected, tradeProfile, byId) : null),
     [selected, tradeProfile, showFlows, byId],
@@ -253,12 +265,14 @@ export function App() {
             currencies={data.currencies?.data[selected.id]}
             currencyMeta={data.currencies?.meta}
           />
-          {tradeProfile === undefined ? (
+          {tradeState === undefined ? (
             <p className="muted small">Loading trade…</p>
           ) : (
             <Suspense fallback={<p className="muted small">Loading trade…</p>}>
               <TradeSection
-                profile={tradeProfile}
+                profile={tradeState.profile}
+                error={tradeState.error}
+                onRetry={() => setTradeAttempt((n) => n + 1)}
                 meta={metaFor(data.manifest, 'trade/by-country/')}
                 darkMode={darkMode}
                 colors={{ exports: palette.flowExports, imports: palette.flowImports }}

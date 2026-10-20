@@ -80,6 +80,18 @@ export function WorldMap({
     fillColors,
   });
   const [hover, setHover] = useState<Hover | null>(null);
+  /** Country whose flows should be brought into view when they arrive (set by focus requests). */
+  const pendingFlowFit = useRef<string | null>(null);
+
+  /** The one camera move: fit bounds, keep clear of the panel, respect reduced motion. */
+  const fitTo = (map: MapLibreMap, bounds: LngLatBounds, maxZoom: number) => {
+    const obscured = latest.current.getObscured();
+    map.fitBounds(bounds, {
+      padding: { top: 72, left: 32, right: 32 + obscured.right, bottom: 32 + obscured.bottom },
+      maxZoom,
+      duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 900,
+    });
+  };
   // Feature state can only be set once the sources exist, i.e. after the first 'load'.
   const [loaded, setLoaded] = useState(false);
   // Handlers are attached once; keep the latest props in refs.
@@ -172,22 +184,20 @@ export function WorldMap({
     applied.current = { darkMode, fillColors };
   }, [darkMode, fillColors, loaded]);
 
-  // Draw trade flows and bring all their end points into view.
+  // Draw trade flows. After a focus request (search, link) the view widens once to show
+  // them; plain clicks and the flows toggle leave the camera alone.
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !loaded) return;
     map.getSource<GeoJSONSource>(SOURCE_FLOWS)?.setData(flows ?? EMPTY_FLOWS);
-    const coords = flows?.features.flatMap((f) =>
+    const origin = flows?.features[0]?.properties?.origin as string | undefined;
+    if (!origin || origin !== pendingFlowFit.current) return;
+    pendingFlowFit.current = null;
+    const coords = flows!.features.flatMap((f) =>
       f.geometry.type === 'LineString' ? (f.geometry.coordinates as [number, number][]) : [],
     );
-    if (!coords?.length) return;
     const bounds = coords.reduce((b, c) => b.extend(c), new LngLatBounds(coords[0]!, coords[0]!));
-    const obscured = latest.current.getObscured();
-    map.fitBounds(bounds, {
-      padding: { top: 72, left: 40, right: 40 + obscured.right, bottom: 40 + obscured.bottom },
-      maxZoom: 4,
-      duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 900,
-    });
+    fitTo(map, bounds, 4);
   }, [flows, loaded]);
 
   // Mirror the selection into feature state.
@@ -210,12 +220,8 @@ export function WorldMap({
     const country = focus && countries.get(focus.id);
     if (!map || !country) return;
     const [w, s, e, n] = country.bbox;
-    const obscured = latest.current.getObscured();
-    map.fitBounds(new LngLatBounds([w, s], [e, n]), {
-      padding: { top: 72, left: 32, right: 32 + obscured.right, bottom: 32 + obscured.bottom },
-      maxZoom: country.tiny ? 6 : 5,
-      duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 900,
-    });
+    fitTo(map, new LngLatBounds([w, s], [e, n]), country.tiny ? 6 : 5);
+    pendingFlowFit.current = country.id;
   }, [focus, countries]);
 
   const hovered = hover ? countries.get(hover.id) : undefined;

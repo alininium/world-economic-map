@@ -18,7 +18,10 @@ import { flowLines } from './map/flows';
 import { toMapFeatures } from './map/geometry';
 import { Legend } from './map/Legend';
 import { paletteFor } from './map/palette';
-import { WorldMap, type FocusRequest } from './map/WorldMap';
+import type { FocusRequest } from './map/WorldMap';
+import { CompareTray } from './compare/CompareTray';
+import { CompareView } from './compare/CompareView';
+import { compareFromUrl, toggleCompare } from './compare/compare';
 import { ChainSection } from './panel/ChainSection';
 import { CountryPanel } from './panel/CountryPanel';
 import { MacroSnapshot } from './panel/MacroSnapshot';
@@ -28,6 +31,9 @@ import { useMediaQuery } from './useMediaQuery';
 
 // ECharts is only needed once a country is opened; keep it out of the initial bundle.
 const TradeSection = lazy(() => import('./panel/TradeSection'));
+// The map (MapLibre) is the largest module; load it in parallel with the data so the page
+// shell, search and panel code are not held up by it.
+const WorldMap = lazy(() => import('./map/WorldMap').then((m) => ({ default: m.WorldMap })));
 const FdiSection = lazy(() => import('./panel/FdiSection'));
 
 function idFromHash(): string | null {
@@ -70,6 +76,8 @@ export function App() {
   const [mode, setMode] = useState<MapMode>(() => modeFromUrl().mode);
   const [measure, setMeasure] = useState<Measure>(() => modeFromUrl().measure);
   const [chainStage, setChainStage] = useState<string | null>(stageFromUrl);
+  const [compareIds, setCompareIds] = useState<string[]>(() => compareFromUrl());
+  const [comparing, setComparing] = useState(false);
   const [focus, setFocus] = useState<FocusRequest | null>(() => {
     const id = idFromHash();
     return id ? { id, nonce: 0 } : null;
@@ -93,8 +101,10 @@ export function App() {
   // Keep the selection (hash) and map mode (query) in the URL so a view can be bookmarked.
   useEffect(() => {
     const url = new URL(window.location.href);
-    for (const k of ['metric', 'commodity', 'measure', 'chain', 'stage'])
+    for (const k of ['metric', 'commodity', 'measure', 'chain', 'stage', 'compare']) {
       url.searchParams.delete(k);
+    }
+    if (compareIds.length) url.searchParams.set('compare', compareIds.join(','));
     if (mode.kind === 'indicator') url.searchParams.set('metric', mode.key);
     if (mode.kind === 'commodity') {
       url.searchParams.set('commodity', mode.id);
@@ -106,7 +116,7 @@ export function App() {
     }
     url.hash = selectedId ? `#${selectedId}` : '';
     if (url.href !== window.location.href) history.replaceState(null, '', url);
-  }, [selectedId, mode, measure, chainStage]);
+  }, [selectedId, mode, measure, chainStage, compareIds]);
 
   const focusOn = useCallback((id: string) => {
     setFocus((f) => ({ id, nonce: (f?.nonce ?? 0) + 1 }));
@@ -134,6 +144,11 @@ export function App() {
 
   const countries = data?.countries.data;
   const byId = useMemo(() => new Map((countries ?? []).map((c) => [c.id, c])), [countries]);
+  // Ids from a link may be unknown; only those that exist are compared.
+  const validCompare = useMemo(
+    () => (byId.size ? compareIds.filter((id) => byId.has(id)) : compareIds),
+    [compareIds, byId],
+  );
   const features = useMemo(() => data && toMapFeatures(data.topo, data.countries.data), [data]);
 
   const macro = useMemo(
@@ -339,6 +354,12 @@ export function App() {
 
   return (
     <div className={`app ${selected ? 'has-panel' : ''}`}>
+      <a className="skip-link" href="#country-search">
+        Skip to country search
+      </a>
+      <p className="visually-hidden" aria-live="polite">
+        {selected ? `${selected.name} selected` : ''}
+      </p>
       <header className="topbar">
         <h1>World Economic Map</h1>
         {countries && <CountrySearch countries={countries} onPick={selectAndFocus} />}
@@ -375,17 +396,37 @@ export function App() {
       {!data && !error && <p className="status-message">Loading map…</p>}
 
       {features && (
-        <WorldMap
-          features={features}
+        <Suspense fallback={<p className="status-message">Loading map…</p>}>
+          <WorldMap
+            features={features}
+            countries={byId}
+            selectedId={selectedId}
+            focus={focus}
+            darkMode={darkMode}
+            fillColors={commodityMap?.colors ?? chainMap?.colors ?? choropleth?.colors ?? null}
+            flows={flows}
+            getObscured={getObscured}
+            onSelect={select}
+            renderTooltip={renderTooltip}
+          />
+        </Suspense>
+      )}
+
+      <CompareTray
+        ids={validCompare}
+        countries={byId}
+        onRemove={(id) => setCompareIds((l) => l.filter((x) => x !== id))}
+        onOpen={() => setComparing(true)}
+      />
+      {comparing && validCompare.length > 0 && data && (
+        <CompareView
+          ids={validCompare}
           countries={byId}
-          selectedId={selectedId}
-          focus={focus}
-          darkMode={darkMode}
-          fillColors={commodityMap?.colors ?? chainMap?.colors ?? choropleth?.colors ?? null}
-          flows={flows}
-          getObscured={getObscured}
-          onSelect={select}
-          renderTooltip={renderTooltip}
+          macro={macro}
+          resources={resources}
+          currencies={data.currencies?.data}
+          onRemove={(id) => setCompareIds((l) => l.filter((x) => x !== id))}
+          onClose={() => setComparing(false)}
         />
       )}
 
@@ -435,7 +476,13 @@ export function App() {
           country={selected}
           sovereign={selected.sovereign ? byId.get(selected.sovereign) : undefined}
           boundariesMeta={boundariesMeta}
-          onClose={() => setSelectedId(null)}
+          onClose={() => {
+            setSelectedId(null);
+            // Return focus to the map, where the panel was opened from.
+            document.querySelector<HTMLElement>('.maplibregl-canvas')?.focus();
+          }}
+          inCompare={validCompare.includes(selected.id)}
+          onToggleCompare={() => setCompareIds((l) => toggleCompare(l, selected.id))}
           onSelect={selectAndFocus}
         >
           <MacroSnapshot

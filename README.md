@@ -5,9 +5,15 @@ macro indicators, trade, strategic resources, foreign investment and production 
 It is a static site: a data pipeline downloads and normalizes public datasets into versioned
 JSON files under `data/`, and the browser app reads only those files.
 
-> **Status:** milestones 1–6: a clickable world map with search, a choropleth with legend,
-> commodity and production-chain views, and a country panel with a macro snapshot, foreign
-> investment, strategic resources, production chains, trade charts and trade-flow lines. See the [Roadmap](#roadmap) and
+> **Status:** all seven milestones are in place. The app has:
+>
+> - a clickable world map with search, a choropleth with legend, and commodity and
+>   production-chain views
+> - a country panel with a macro snapshot, foreign investment, strategic resources,
+>   production chains, trade charts and trade-flow lines
+> - a comparison mode
+>
+> Several datasets still need a refresh with network access; see [Data status](#data-status). See the [Roadmap](#roadmap) and
 > [Data status](#data-status).
 
 ## Running it
@@ -85,6 +91,39 @@ src/
   panel/           country detail panel
 data/              generated, versioned datasets the app reads
 ```
+
+## Using the app
+
+- **Find a country:** click it, or search by name in English, French, Polish, Russian, German
+  or Spanish, or by ISO code. Small states have a dot at world zoom.
+- **Color the map:** the selector in the top bar offers economic indicators, strategic
+  commodities and production chains.
+- **Compare:** "+ Compare" in a country's panel adds it to the comparison tray, up to four
+  countries. "Compare" opens a side-by-side table.
+- **Share a view:** the URL holds the selected country (`#FRA`), the map mode
+  (`?metric=`, `?commodity=&measure=`, `?chain=&stage=`) and the comparison (`?compare=`).
+
+### Accessibility
+
+- **Keyboard:**
+  - A skip link leads to the search box, a combobox you navigate with the arrow keys.
+  - Opening a country moves focus to its panel, and closing the panel returns focus to the
+    map, which pans and zooms with arrow and +/− keys.
+  - Escape closes the panel or the comparison dialog. The dialog keeps focus inside it until
+    closed.
+- **Screen readers:** a live region announces the selected country.
+- **Charts:** every chart has a table alternative or an equivalent figures table.
+- **Color:**
+  - Map colors were checked for colorblind-safe steps and contrast in both themes.
+  - The map follows the system's light or dark theme, including its controls.
+  - Reduced-motion settings disable camera animation.
+
+### Performance
+
+- **Initial load:** about 86 kB of gzipped JavaScript.
+- **Lazy loading:** MapLibre loads as a separate chunk in parallel with the data. ECharts and
+  per-country trade profiles load only when a country panel needs them.
+- **Data size:** boundaries are a 480 kB TopoJSON (160 kB gzipped).
 
 ## Countries and territories
 
@@ -290,7 +329,7 @@ MVP:
 4. ✅ Strategic resources and the commodity view
 5. ✅ FDI flows (stock and partners pending, see above)
 6. ✅ Production chains (cited notes + trade-derived roles)
-7. Comparison mode, polish, accessibility, performance
+7. ✅ Comparison mode, accessibility, performance
 
 ## Known gaps and limitations
 
@@ -306,5 +345,3 @@ MVP:
 - Unemployment mixes two definitions when the IMF fallback is used: the World Bank series is a
   modelled ILO estimate, the IMF's follows national definitions.
 - There are no country labels on the map yet. Names show in the tooltip and in search.
-- MapLibre makes up most of the JavaScript bundle (~360 kB gzipped). Code-splitting is planned
-  for the polish milestone.

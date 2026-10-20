@@ -5,7 +5,6 @@ import {
   setWorkerUrl,
   type GeoJSONSource,
 } from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Country } from '../../shared/types';

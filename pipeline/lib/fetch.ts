@@ -56,17 +56,18 @@ function describe(err: unknown, url: string): Error {
 
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
-/**
- * Downloads a URL as text and keeps the raw response in pipeline/.cache. Transient failures
- * are retried with exponential backoff; the cache is only read back with `--cached`.
- */
-export async function cachedFetch(url: string, opts: FetchOptions = {}): Promise<Fetched> {
+/** Shared download path: cache lookup, polite spacing, retries. */
+async function download(
+  url: string,
+  opts: FetchOptions,
+): Promise<{ data: Buffer; retrievedAt: string }> {
   const key = createHash('sha256').update(url).digest('hex').slice(0, 16);
-  const file = path.join(CACHE_DIR, `${key}-${path.basename(new URL(url).pathname) || 'index'}`);
+  const name = path.basename(new URL(url).pathname).replace(/[^\w.-]/g, '_') || 'index';
+  const file = path.join(CACHE_DIR, `${key}-${name}`);
   if (useCache) {
     try {
-      const [body, info] = await Promise.all([readFile(file, 'utf8'), stat(file)]);
-      return { body, retrievedAt: isoDate(info.mtime) };
+      const [data, info] = await Promise.all([readFile(file), stat(file)]);
+      return { data, retrievedAt: isoDate(info.mtime) };
     } catch {
       // not cached yet
     }
@@ -77,10 +78,10 @@ export async function cachedFetch(url: string, opts: FetchOptions = {}): Promise
     try {
       const res = await fetch(url, { headers: opts.headers });
       if (!res.ok) throw new HttpError(res.status, url);
-      const body = await res.text();
+      const data = Buffer.from(await res.arrayBuffer());
       await mkdir(CACHE_DIR, { recursive: true });
-      await writeFile(file, body);
-      return { body, retrievedAt: isoDate(new Date()) };
+      await writeFile(file, data);
+      return { data, retrievedAt: isoDate(new Date()) };
     } catch (err) {
       if (attempt >= retries || !isRetryable(err)) throw describe(err, url);
       const backoff = 2000 * 2 ** attempt;
@@ -88,4 +89,21 @@ export async function cachedFetch(url: string, opts: FetchOptions = {}): Promise
       await new Promise((r) => setTimeout(r, backoff));
     }
   }
+}
+
+/**
+ * Downloads a URL as text and keeps the raw response in pipeline/.cache. Transient failures
+ * are retried with exponential backoff; the cache is only read back with `--cached`.
+ */
+export async function cachedFetch(url: string, opts: FetchOptions = {}): Promise<Fetched> {
+  const { data, retrievedAt } = await download(url, opts);
+  return { body: data.toString('utf8'), retrievedAt };
+}
+
+/** Like cachedFetch, for binary files such as zip archives. */
+export async function cachedFetchBinary(
+  url: string,
+  opts: FetchOptions = {},
+): Promise<{ data: Uint8Array; retrievedAt: string }> {
+  return download(url, opts);
 }

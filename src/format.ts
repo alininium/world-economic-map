@@ -13,6 +13,8 @@ export function compact(n: number): string {
   for (const [size, suffix] of SCALES) {
     if (rounded >= size) return `${n < 0 ? '-' : ''}${trim(rounded / size)}${suffix}`;
   }
+  // Below 1,000 keep three significant digits, so 0.226 does not collapse to 0.
+  if (Math.abs(n) < 1000) return String(Number(n.toPrecision(3)));
   return Math.round(n).toLocaleString('en-US');
 }
 
@@ -58,3 +60,16 @@ export function formatBreak(value: number, unit: Unit): string {
   const prefix = unit === 'usd' ? '$' : unit === 'intl_usd' ? 'Int$' : '';
   return `${value < 0 ? '−' : ''}${prefix}${compact(Math.abs(value))}`;
 }
+
+/** Formats a resource quantity in the unit its source publishes (tonnes, TWh, US dollars…). */
+export function formatQuantity(value: number, unit: string): string {
+  if (/dollar/i.test(unit)) return formatValue(value, 'usd');
+  const short = unit
+    .replace(/^metric tons?$/i, 't')
+    .replace(/^tonnes$/i, 't')
+    .replace(/^kilograms?$/i, 'kg');
+  return `${compact(value)} ${short}`;
+}
+
+export const formatShare = (share: number) =>
+  `${(share * 100).toFixed(share < 0.01 ? 2 : share < 0.1 ? 1 : 0)}%`;

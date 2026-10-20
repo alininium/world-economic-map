@@ -1,3 +1,4 @@
+import { RESOURCE_FILES, type ResourceTable } from '../../shared/commodities';
 import type { CurrencyTable, SeriesTable, SourceId } from '../../shared/indicators';
 import { TRADE_SUMMARY_PATH, tradeProfilePath, type TradeProfile } from '../../shared/trade';
 import type { Country, Dataset, DatasetMeta, Manifest } from '../../shared/types';
@@ -30,6 +31,8 @@ export interface AppData {
   /** Macro source tables; a source is absent until `npm run data:refresh` has fetched it. */
   macro: Partial<Record<SourceId, Dataset<SeriesTable>>>;
   currencies: Dataset<CurrencyTable> | null;
+  /** Resource source files that have been produced, in RESOURCE_FILES order. */
+  resources: Dataset<ResourceTable>[];
 }
 
 export async function loadAppData(): Promise<AppData> {
@@ -39,18 +42,27 @@ export async function loadAppData(): Promise<AppData> {
     getJson<Topology>('geo/countries.topo.json'),
   ]);
   const manifest = await getJson<Manifest>('manifest.json');
-  const [[countries, topo], worldbank, imf, comtrade, currencies] = await Promise.all([
-    required,
-    getListed<SeriesTable>(manifest, 'macro/worldbank.json'),
-    getListed<SeriesTable>(manifest, 'macro/imf.json'),
-    getListed<SeriesTable>(manifest, TRADE_SUMMARY_PATH),
-    getListed<CurrencyTable>(manifest, 'currencies.json'),
-  ]);
+  const [[countries, topo], worldbank, imf, comtrade, currencies, ...resources] =
+    await Promise.all([
+      required,
+      getListed<SeriesTable>(manifest, 'macro/worldbank.json'),
+      getListed<SeriesTable>(manifest, 'macro/imf.json'),
+      getListed<SeriesTable>(manifest, TRADE_SUMMARY_PATH),
+      getListed<CurrencyTable>(manifest, 'currencies.json'),
+      ...Object.values(RESOURCE_FILES).map((p) => getListed<ResourceTable>(manifest, p)),
+    ]);
   const macro: AppData['macro'] = {};
   if (worldbank) macro.worldbank = worldbank;
   if (imf) macro.imf = imf;
   if (comtrade) macro.comtrade = comtrade;
-  return { manifest, countries, topo, macro, currencies };
+  return {
+    manifest,
+    countries,
+    topo,
+    macro,
+    currencies,
+    resources: resources.filter((r): r is Dataset<ResourceTable> => r !== null),
+  };
 }
 
 export function metaFor(manifest: Manifest, relPath: string): DatasetMeta | undefined {

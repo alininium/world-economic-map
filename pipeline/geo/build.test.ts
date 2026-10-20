@@ -19,6 +19,7 @@ const props = (adm0: string, iso: string, extra: Record<string, unknown> = {}) =
   ADM0_A3: adm0,
   ISO_A3_EH: iso,
   ISO_A2_EH: iso.slice(0, 2),
+  ISO_N3_EH: '-99',
   SOVEREIGNT: adm0,
   ADMIN: adm0,
   NAME: adm0,

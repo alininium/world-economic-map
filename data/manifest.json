@@ -37,6 +37,19 @@
         "id": "geo",
         "title": "Country boundaries (TopoJSON)"
       }
+    },
+    {
+      "path": "resources/energy.json",
+      "meta": {
+        "id": "energy",
+        "title": "Fossil fuel production",
+        "source": "Energy Institute, Statistical Review of World Energy (2025), via Our World in Data energy dataset (legacy release)",
+        "sourceUrl": "https://github.com/owid/energy-data",
+        "license": "CC BY 4.0 (Our World in Data); Energy Institute data used with attribution",
+        "retrievedAt": "2026-10-20",
+        "dataYear": "2024",
+        "notes": "Oil, gas and coal production in terawatt-hours of primary energy."
+      }
     }
   ]
 }

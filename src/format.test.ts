@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compact, formatBreak, formatValue } from './format';
+import { compact, formatBreak, formatQuantity, formatValue } from './format';
 
 describe('formatValue', () => {
   it('abbreviates large dollar amounts', () => {
@@ -45,5 +45,15 @@ describe('compact and formatBreak', () => {
     expect(formatBreak(0.0149, 'index')).toBe('0.0149');
     expect(formatBreak(0.0151, 'index')).toBe('0.0151');
     expect(formatBreak(0.012, 'index')).toBe('0.012');
+  });
+});
+
+describe('formatQuantity', () => {
+  it('abbreviates published units', () => {
+    expect(formatQuantity(240000, 'metric tons')).toBe('240,000 t');
+    expect(formatQuantity(5.9e6, 'tonnes')).toBe('5.90 m t');
+    expect(formatQuantity(9977, 'TWh')).toBe('9,977 TWh');
+    expect(formatQuantity(3.2e9, 'US dollars')).toBe('$3.20 bn');
+    expect(formatQuantity(0.226, 'TWh')).toBe('0.226 TWh');
   });
 });

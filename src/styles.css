@@ -500,3 +500,80 @@ body,
 .panel a {
   color: inherit;
 }
+
+.commodity-card {
+  top: calc(max(12px, env(safe-area-inset-top)) + 56px);
+  bottom: auto;
+  width: 300px;
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 140px);
+  overflow-y: auto;
+}
+
+.segmented.wrap {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 6px 0;
+}
+
+.segmented button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ranking {
+  margin: 6px 0;
+  padding-left: 22px;
+  font-size: 0.8rem;
+}
+
+.legend .ranking li {
+  display: list-item;
+  padding: 2px 0;
+}
+
+.ranking li::marker {
+  color: var(--muted);
+}
+
+/* Name, value and share in aligned columns; long names wrap within their column. */
+.ranking-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7.5em 3.5em;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.ranking-row .link {
+  text-align: left;
+}
+
+.ranking-row > :nth-child(n + 2) {
+  text-align: right;
+}
+
+.legend-bins {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legend-bins li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 0;
+}
+
+@media (max-width: 767px) {
+  .commodity-card {
+    top: calc(max(12px, env(safe-area-inset-top)) + 100px);
+    width: auto;
+    right: 12px;
+    max-height: 40%;
+  }
+
+  .has-panel .commodity-card {
+    display: none;
+  }
+}

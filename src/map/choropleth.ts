@@ -82,3 +82,36 @@ export function buildClasses(
 export function colorFor(value: number, bins: readonly ClassBin[]): string | undefined {
   return bins.find((b) => value >= b.min && value < b.max)?.color;
 }
+
+/**
+ * Classes and per-country colours for a map layer. Breaks come from ranked entities only
+ * (sovereign states), so dependencies are coloured without shifting them.
+ */
+export function classify(
+  entries: readonly (readonly [string, number])[],
+  isRanked: (id: string) => boolean,
+  kind: ScaleKind,
+  palette: Pick<MapPalette, 'sequential' | 'negative' | 'positive'>,
+): { bins: ClassBin[]; colors: Record<string, string> } {
+  const ranked = entries.filter(([id]) => isRanked(id)).map(([, v]) => v);
+  const bins = buildClasses(
+    ranked,
+    kind,
+    palette,
+    entries.map(([, v]) => v),
+  );
+  const colors: Record<string, string> = {};
+  for (const [id, v] of entries) {
+    const color = colorFor(v, bins);
+    if (color) colors[id] = color;
+  }
+  return { bins, colors };
+}
+
+/** "< 5", "5 to 10", "≥ 10" for a class bin, with the caller's number format. */
+export function binLabel(b: ClassBin, f: (v: number) => string): string {
+  if (b.min === -Infinity && b.max === Infinity) return 'All values';
+  if (b.min === -Infinity) return `< ${f(b.max)}`;
+  if (b.max === Infinity) return `≥ ${f(b.min)}`;
+  return `${f(b.min)} to ${f(b.max)}`;
+}

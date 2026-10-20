@@ -13,8 +13,8 @@ JSON files under `data/`, and the browser app reads only those files.
 >   production chains, trade charts and trade-flow lines
 > - a comparison mode
 >
-> Several datasets still need a refresh with network access; see [Data status](#data-status). See the [Roadmap](#roadmap) and
-> [Data status](#data-status).
+> Trade data still needs a Comtrade API key; see [Data status](#data-status). See the
+> [Roadmap](#roadmap) for what is built.
 
 ## Running it
 
@@ -311,14 +311,25 @@ country panel lists the country's notes and its net position in each stage.
 
 ## Data status
 
-Included now: boundaries, currencies, and fossil-fuel production (`data/resources/energy.json`,
-Statistical Review 2025, data year 2024).
+Included now, all fetched from the sources below by the **Refresh data** workflow on
+2026-10-20:
 
-The cloud environment this was built in could not reach the World Bank, IMF, UN Comtrade,
-USGS ScienceBase or FAOSTAT, so the macro, trade, mineral and crop datasets have not been
-generated yet. The app says so wherever they would appear, and no placeholder figures were
-added. Run `npm run data:refresh macro trade usgs fao` with network access (and a Comtrade key)
-to fill them in.
+- boundaries and currencies
+- World Bank WDI macro indicators and FDI flows (latest year per country, mostly 2025)
+- IMF World Economic Outlook (2025; fills gaps such as Taiwan)
+- fossil-fuel production (Statistical Review 2025, data year 2024)
+- USGS minerals (Mineral Commodity Summaries 2025, data year 2024)
+- FAOSTAT crop production (data year 2024)
+- the curated production-chain notes
+
+Not yet included: **goods trade** (UN Comtrade). It needs a free API key: add a
+`COMTRADE_API_KEY` repository secret and run the workflow with the `trade` step. Until then, the
+app says trade data is not loaded, and no placeholder figures are shown.
+
+Known data caveats:
+
+- USGS lists US cobalt under a different series label ("Mine production, estimated") from every
+  other country, so it is left out of the cobalt table (300 t of 290,000 t in 2024).
 
 ## Data sources
 

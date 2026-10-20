@@ -14,6 +14,19 @@
       }
     },
     {
+      "path": "currencies.json",
+      "meta": {
+        "id": "currencies",
+        "title": "Currencies in use",
+        "source": "ISO 4217 (SIX Group, maintenance agency), as compiled in the datasets/country-codes package",
+        "sourceUrl": "https://github.com/datasets/country-codes",
+        "license": "ODC-PDDL-1.0 (compilation)",
+        "retrievedAt": "2026-10-20",
+        "dataYear": "current as of 2026-10-20",
+        "notes": "Entities without an ISO 3166 code (e.g. Kosovo) have no ISO 4217 listing."
+      }
+    },
+    {
       "path": "geo/countries.topo.json",
       "meta": {
         "source": "Natural Earth 1:50m Admin 0 – Countries (v5.1.2); territory policy in pipeline/geo/territories.ts",

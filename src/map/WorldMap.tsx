@@ -10,9 +10,11 @@ import {
   INTERACTIVE_LAYERS,
   SOURCE_MARKERS,
   SOURCE_SHAPES,
-  applyPalette,
+  applyHatch,
+  applyPaint,
   buildStyle,
   hatchImage,
+  type FillColors,
 } from './style';
 
 // MapLibre 6 ships its web worker as a separate file; let Vite emit it and tell MapLibre where it is.
@@ -30,6 +32,8 @@ interface Props {
   selectedId: string | null;
   focus: FocusRequest | null;
   darkMode: boolean;
+  /** Colours for the active choropleth metric, or null for the plain political map. */
+  fillColors: FillColors;
   /** Measures the map area covered by other UI (the detail panel) at the moment the camera moves. */
   getObscured: () => { right: number; bottom: number };
   onSelect: (id: string | null) => void;
@@ -52,26 +56,33 @@ export function WorldMap({
   selectedId,
   focus,
   darkMode,
+  fillColors,
   getObscured,
   onSelect,
   renderTooltip,
 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  /** What the map is currently painted with. */
+  const applied = useRef<{ darkMode: boolean; fillColors: FillColors }>({
+    darkMode,
+    fillColors,
+  });
   const [hover, setHover] = useState<Hover | null>(null);
   // Feature state can only be set once the sources exist, i.e. after the first 'load'.
   const [loaded, setLoaded] = useState(false);
   // Handlers are attached once; keep the latest props in refs.
-  const latest = useRef({ countries, onSelect, getObscured, darkMode });
+  const latest = useRef({ countries, onSelect, getObscured, darkMode, fillColors });
   useEffect(() => {
-    latest.current = { countries, onSelect, getObscured, darkMode };
+    latest.current = { countries, onSelect, getObscured, darkMode, fillColors };
   });
 
   useEffect(() => {
     const palette = paletteFor(latest.current.darkMode);
+    applied.current = { darkMode: latest.current.darkMode, fillColors: latest.current.fillColors };
     const map = new MapLibreMap({
       container: container.current!,
-      style: buildStyle(palette, features),
+      style: buildStyle(palette, features, latest.current.fillColors),
       center: [10, 25],
       zoom: 1.2,
       minZoom: 0.5,
@@ -138,14 +149,17 @@ export function WorldMap({
     };
   }, [features]);
 
-  // Follow the OS colour scheme live, as the CSS does.
-  const appliedDark = useRef(darkMode);
+  // Repaint for a new metric or OS colour scheme without rebuilding the map.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !loaded || appliedDark.current === darkMode) return;
-    applyPalette(map, paletteFor(darkMode));
-    appliedDark.current = darkMode;
-  }, [darkMode, loaded]);
+    const prev = applied.current;
+    if (!map || !loaded) return;
+    if (prev.darkMode === darkMode && prev.fillColors === fillColors) return;
+    const palette = paletteFor(darkMode);
+    applyPaint(map, palette, fillColors);
+    if (prev.darkMode !== darkMode) applyHatch(map, palette);
+    applied.current = { darkMode, fillColors };
+  }, [darkMode, fillColors, loaded]);
 
   // Mirror the selection into feature state.
   useEffect(() => {

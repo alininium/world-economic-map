@@ -5,14 +5,25 @@
  */
 import { runGeo } from './geo/build';
 import { setUseCache } from './lib/fetch';
+import { runCurrencies } from './macro/currencies';
+import { runImf } from './macro/imf';
+import { runWorldBank } from './macro/worldbank';
 
 const STEPS: Record<string, () => Promise<void>> = {
   geo: runGeo,
+  worldbank: runWorldBank,
+  imf: runImf,
+  currencies: runCurrencies,
+};
+
+/** Shorthands for several steps. */
+const GROUPS: Record<string, string[]> = {
+  macro: ['worldbank', 'imf', 'currencies'],
 };
 
 const args = process.argv.slice(2);
 setUseCache(args.includes('--cached'));
-const requested = args.filter((a) => !a.startsWith('--'));
+const requested = args.filter((a) => !a.startsWith('--')).flatMap((a) => GROUPS[a] ?? [a]);
 const unknown = requested.filter((s) => !(s in STEPS));
 if (unknown.length) {
   console.error(

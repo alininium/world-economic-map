@@ -36,3 +36,10 @@ export async function recordInManifest(relPath: string, meta: DatasetMeta): Prom
   manifest.generatedAt = today();
   await writeFile(file, JSON.stringify(manifest, null, 2) + '\n');
 }
+
+/** Ids of every entity in data/countries.json; run the geo step first. */
+export async function readCountryIds(): Promise<Set<string>> {
+  const file = path.join(DATA_DIR, 'countries.json');
+  const parsed = JSON.parse(await readFile(file, 'utf8')) as Dataset<{ id: string }[]>;
+  return new Set(parsed.data.map((c) => c.id));
+}

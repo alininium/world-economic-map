@@ -1,9 +1,11 @@
-import type { Ref } from 'react';
+import type { ReactNode, Ref } from 'react';
 import { STATUS_LABELS } from '../../shared/status';
 import type { Country, DatasetMeta } from '../../shared/types';
 
 interface Props {
   ref?: Ref<HTMLElement>;
+  /** Data sections (macro, trade, …) rendered below the facts. */
+  children?: ReactNode;
   country: Country;
   sovereign: Country | undefined;
   boundariesMeta: DatasetMeta;
@@ -20,6 +22,7 @@ const STATUS_NOTES: Partial<Record<Country['status'], string>> = {
 };
 
 export function CountryPanel({
+  children,
   ref,
   country,
   sovereign,
@@ -66,10 +69,7 @@ export function CountryPanel({
         {note && <p className="note">{note}</p>}
       </section>
 
-      <section>
-        <h3>Economy</h3>
-        <p className="missing">No economic datasets are loaded yet.</p>
-      </section>
+      {children}
 
       <footer className="panel-footer muted">
         Boundaries: {boundariesMeta.source}, retrieved {boundariesMeta.retrievedAt}.{' '}

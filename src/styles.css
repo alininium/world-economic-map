@@ -289,3 +289,135 @@ body,
     right: var(--panel-width);
   }
 }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.metric-picker select {
+  max-width: 240px;
+  padding: 9px 10px;
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.metric-picker select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.legend {
+  position: absolute;
+  z-index: 1;
+  left: 12px;
+  bottom: 84px;
+  max-width: 240px;
+  padding: 10px 12px;
+  font-size: 0.8rem;
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.legend h2 {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+}
+
+.legend ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.swatch {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.legend-note {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.figures {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.figures th,
+.figures td {
+  padding: 5px 0;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.figures th {
+  font-weight: normal;
+  color: var(--muted);
+  padding-right: 8px;
+}
+
+.figure-value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding-right: 8px;
+}
+
+.figure-source {
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.figure-source a {
+  color: inherit;
+}
+
+.stale {
+  color: var(--accent);
+}
+
+@media (max-width: 767px) {
+  .topbar {
+    flex-wrap: wrap;
+  }
+
+  .metric-picker,
+  .metric-picker select {
+    width: 100%;
+    max-width: none;
+  }
+
+  .legend {
+    bottom: auto;
+    top: calc(max(12px, env(safe-area-inset-top)) + 96px);
+    max-width: 180px;
+  }
+
+  .has-panel .legend {
+    display: none;
+  }
+}

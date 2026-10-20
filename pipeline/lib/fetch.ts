@@ -45,6 +45,14 @@ export interface Fetched {
   retrievedAt: string;
 }
 
+/** Node reports network failures as "fetch failed" with the reason in `cause`; surface it. */
+function describe(err: unknown, url: string): Error {
+  if (err instanceof HttpError) return err;
+  const cause = (err as { cause?: { code?: string; message?: string } }).cause;
+  const reason = cause?.code ?? cause?.message;
+  return new Error(`${(err as Error).message}${reason ? ` (${reason})` : ''} for ${url}`);
+}
+
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);
 
 /**
@@ -73,7 +81,7 @@ export async function cachedFetch(url: string, opts: FetchOptions = {}): Promise
       await writeFile(file, body);
       return { body, retrievedAt: isoDate(new Date()) };
     } catch (err) {
-      if (attempt >= retries || !isRetryable(err)) throw err;
+      if (attempt >= retries || !isRetryable(err)) throw describe(err, url);
       const backoff = 2000 * 2 ** attempt;
       console.warn(`  retrying in ${backoff / 1000}s: ${(err as Error).message}`);
       await new Promise((r) => setTimeout(r, backoff));

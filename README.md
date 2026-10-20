@@ -5,8 +5,9 @@ macro indicators, trade, strategic resources, foreign investment and production 
 It is a static site: a data pipeline downloads and normalizes public datasets into versioned
 JSON files under `data/`, and the browser app reads only those files.
 
-> **Status:** milestone 1 of the MVP: a clickable world map with search and a country panel.
-> Economic data arrives in milestones 2–3 (see [Roadmap](#roadmap)).
+> **Status:** milestones 1–2: a clickable world map with search, a choropleth with legend, and a
+> country panel with a macro snapshot. See the [Roadmap](#roadmap) and
+> [Data status](#data-status).
 
 ## Running it
 
@@ -34,6 +35,7 @@ Other scripts:
 cp .env.example .env     # only needed for sources that require a key (later milestones)
 npm run data:refresh     # all steps
 npm run data:refresh geo # one step
+npm run data:refresh macro        # World Bank, IMF and currencies
 npm run data:refresh -- --cached  # reuse earlier downloads from pipeline/.cache/
 ```
 
@@ -97,15 +99,57 @@ data/              generated, versioned datasets the app reads
 Boundaries follow Natural Earth's de facto conventions. They are not a statement on any
 dispute.
 
+## Macro indicators
+
+Indicators and their sources are listed in `shared/indicators.ts`. Each has a primary series
+and, where the IMF publishes a comparable one, a fallback used only for countries the primary
+source lacks (the World Bank has nothing for Taiwan, for example). The panel shows the year
+and source next to every figure and links to the original series. The tooltip and legend name
+the source too.
+
+| Indicator                                | Primary (code)                 | Fallback (IMF WEO code) |
+| ---------------------------------------- | ------------------------------ | ----------------------- |
+| GDP, nominal (US$)                       | World Bank `NY.GDP.MKTP.CD`    | `NGDPD`                 |
+| GDP, PPP (int. $)                        | World Bank `NY.GDP.MKTP.PP.CD` | `PPPGDP`                |
+| GDP growth (%)                           | World Bank `NY.GDP.MKTP.KD.ZG` | `NGDP_RPCH`             |
+| GDP per capita (US$)                     | World Bank `NY.GDP.PCAP.CD`    | `NGDPDPC`               |
+| GDP per capita, PPP (int. $)             | World Bank `NY.GDP.PCAP.PP.CD` | `PPPPC`                 |
+| Inflation, consumer prices (%)           | World Bank `FP.CPI.TOTL.ZG`    | `PCPIPCH`               |
+| Unemployment (%)                         | World Bank `SL.UEM.TOTL.ZS`    | `LUR`                   |
+| General government gross debt (% of GDP) | IMF WEO `GGXWDG_NGDP`          | —                       |
+| Population                               | World Bank `SP.POP.TOTL`       | `LP`                    |
+| Trade balance, goods & services (US$)    | World Bank `NE.RSB.GNFS.CD`    | —                       |
+| FDI net inflows (US$)                    | World Bank `BX.KLT.DINV.CD.WD` | —                       |
+| Currency                                 | ISO 4217                       | —                       |
+
+- **Latest value:** each country shows its most recent non-missing year, looking back up to 10
+  years (World Bank), or its latest completed year (IMF). IMF projections are never used.
+  Figures more than four years old are highlighted.
+- **Choropleth:** quantile classes, computed over sovereign states only, so dependencies don't
+  shift the breaks. Magnitudes use one blue ramp in 5 classes. Signed metrics (growth,
+  inflation, trade balance, FDI) use red for negative and blue for positive, 3 classes each,
+  with zero as a class boundary. Grey means no data. The ramps were checked with a palette
+  validator (lightness steps, contrast against the ocean) in both light and dark themes.
+
+## Data status
+
+The cloud environment this was built in could not reach the World Bank or IMF APIs, so
+`data/macro/` has not been generated yet and those panel rows read "Source not loaded". No
+placeholder figures were added. Run `npm run data:refresh macro` with network access to fill
+them in.
+
 ## Data sources
 
-| Data               | Source                                                                               | License        |
-| ------------------ | ------------------------------------------------------------------------------------ | -------------- |
-| Country boundaries | [Natural Earth](https://www.naturalearthdata.com/) 1:50m Admin 0 – Countries, v5.1.2 | Public domain  |
-| UN membership list | [United Nations, Member States](https://www.un.org/en/about-us/member-states)        | Reference list |
+| Data               | Source                                                                                       | License                                |
+| ------------------ | -------------------------------------------------------------------------------------------- | -------------------------------------- |
+| Country boundaries | [Natural Earth](https://www.naturalearthdata.com/) 1:50m Admin 0 – Countries, v5.1.2         | Public domain                          |
+| UN membership list | [United Nations, Member States](https://www.un.org/en/about-us/member-states)                | Reference list                         |
+| Macro indicators   | [World Bank, World Development Indicators](https://data.worldbank.org/) (API v2)             | CC BY 4.0                              |
+| Macro indicators   | [IMF, World Economic Outlook](https://www.imf.org/external/datamapper/) (DataMapper API)     | IMF terms: free reuse with attribution |
+| Currencies         | ISO 4217 (SIX Group) via [datasets/country-codes](https://github.com/datasets/country-codes) | ODC-PDDL-1.0 (compilation)             |
 
-Sources planned for the next milestones: World Bank WDI and IMF WEO (macro), CEPII BACI and
-UN Comtrade (trade), UNCTAD (FDI), USGS, the Energy Institute, EIA and FAOSTAT (resources).
+Sources planned for the next milestones: CEPII BACI and UN Comtrade (trade), UNCTAD (FDI), and
+USGS, the Energy Institute, EIA and FAOSTAT (resources).
 They will be added here with their licenses as they are integrated.
 
 ## Roadmap
@@ -113,11 +157,12 @@ They will be added here with their licenses as they are integrated.
 MVP:
 
 1. ✅ Scaffold, tooling, clickable world map, search, country panel, mobile layout
-2. Macro indicators pipeline → choropleth with legend, macro snapshot in the panel
+2. ✅ Macro indicators pipeline → choropleth with legend, macro snapshot in the panel
 3. Trade: top products and partners, charts, trade-flow lines
-
-Later: strategic resources and commodity view, FDI, production chains (hybrid of trade-derived
-roles and curated, cited notes), comparison mode.
+4. Strategic resources and the commodity view
+5. FDI
+6. Production chains (hybrid of trade-derived roles and curated, cited notes)
+7. Comparison mode, polish, accessibility, performance
 
 ## Known gaps and limitations
 
@@ -125,6 +170,8 @@ roles and curated, cited notes), comparison mode.
   marker for each one.
 - The map uses the Web Mercator projection, so high-latitude countries look larger than they
   are.
+- Unemployment mixes two definitions when the IMF fallback is used: the World Bank series is a
+  modelled ILO estimate, the IMF's follows national definitions.
 - There are no country labels on the map yet. Names show in the tooltip and in search.
 - MapLibre makes up most of the JavaScript bundle (~360 kB gzipped). Code-splitting is planned
   for the polish milestone.

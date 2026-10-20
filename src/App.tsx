@@ -8,7 +8,7 @@ import type { Country } from '../shared/types';
 import { ChainCard } from './controls/ChainCard';
 import { CommodityCard } from './controls/CommodityCard';
 import { MetricPicker, type MapMode } from './controls/MetricPicker';
-import { countryChainTrade, netTrade, notesAbout, notesFor } from './data/chains';
+import { countryChainTrade, netTrade, notesAbout, notesFor, type NetTrade } from './data/chains';
 import { loadAppData, loadTradeProfile, metaFor, type AppData } from './data/load';
 import { buildMacroIndex, SOURCE_LABELS } from './data/macro';
 import { buildResourceIndex, countryResources } from './data/resources';
@@ -199,15 +199,22 @@ export function App() {
     if (!activeChain || !activeStage) return null;
     const stageTrade = chainTrade?.[activeChain]?.[activeStage];
     if (stageTrade) {
-      const entries = netTrade(stageTrade).map((r) => [r.id, r.net] as const);
-      return { ...classify(entries, isRanked, 'diverging', palette), trade: true as const };
+      const all = netTrade(stageTrade);
+      const byCountry = new Map<string, NetTrade>(all.map((r) => [r.id, r]));
+      const entries = all.map((r) => [r.id, r.net] as const);
+      return {
+        ...classify(entries, isRanked, 'diverging', palette),
+        byCountry,
+        ranked: all.filter((r) => isRanked(r.id)),
+      };
     }
-    // Without trade data, highlight the countries the cited notes name for this stage.
+    // Without trade data, show the countries the cited notes name for this stage, by role.
     const colors: Record<string, string> = {};
     for (const n of notesFor(chainNotes, activeChain, activeStage)) {
+      for (const c of n.dependents ?? []) colors[c] ??= palette.flowImports;
       for (const c of n.countries) colors[c] = palette.flowExports;
     }
-    return { bins: null, colors, trade: false as const };
+    return { bins: null, colors, byCountry: null, ranked: null };
   }, [activeChain, activeStage, chainTrade, chainNotes, isRanked, palette]);
 
   const choropleth = useMemo(() => {
@@ -279,11 +286,10 @@ export function App() {
     }
     if (activeChain && activeStage && chainMap) {
       const stage = CHAIN_BY_ID[activeChain]!.stages.find((s) => s.id === activeStage)!;
-      const stageTrade = chainTrade?.[activeChain]?.[activeStage];
-      const r = stageTrade ? netTrade(stageTrade).find((x) => x.id === c.id) : undefined;
-      const named = notesFor(chainNotes, activeChain, activeStage).some((n) =>
-        n.countries.includes(c.id),
-      );
+      const r = chainMap.byCountry?.get(c.id);
+      const stageNotes = notesFor(chainNotes, activeChain, activeStage);
+      const supplier = stageNotes.some((n) => n.countries.includes(c.id));
+      const dependent = stageNotes.some((n) => n.dependents?.includes(c.id));
       return (
         <>
           <strong>{c.name}</strong>
@@ -294,7 +300,8 @@ export function App() {
               {r.year})
             </span>
           )}
-          {named && <span>Named in a cited note</span>}
+          {supplier && <span>Named in a cited note as producer or supplier</span>}
+          {dependent && <span>Named in a cited note as relying on others</span>}
         </>
       );
     }
@@ -320,6 +327,10 @@ export function App() {
   const selected = selectedId ? byId.get(selectedId) : undefined;
   const boundariesMeta = data && metaFor(data.manifest, 'geo/countries.topo.json');
   const tradeState = trade && trade.id === selectedId ? trade : undefined;
+  const chainRoles = useMemo(
+    () => (chainTrade && selectedId ? countryChainTrade(chainTrade, selectedId) : []),
+    [chainTrade, selectedId],
+  );
   const tradeProfile = tradeState?.profile;
   const flows = useMemo(
     () => (selected && tradeProfile && showFlows ? flowLines(selected, tradeProfile, byId) : null),
@@ -397,10 +408,11 @@ export function App() {
           chain={activeChain}
           stage={activeStage}
           notes={chainNotes}
-          trade={chainTrade}
+          ranked={chainMap?.ranked ?? null}
           countries={byId}
           bins={chainMap?.bins ?? null}
-          highlightColor={palette.flowExports}
+          supplierColor={palette.flowExports}
+          dependentColor={palette.flowImports}
           noDataColor={palette.noData}
           onStage={setChainStage}
           onSelectCountry={selectAndFocus}
@@ -450,8 +462,9 @@ export function App() {
             onOpenCommodity={openCommodity}
           />
           <ChainSection
+            countryId={selected.id}
             notes={notesAbout(chainNotes, selected.id)}
-            roles={chainTrade ? countryChainTrade(chainTrade, selected.id) : []}
+            roles={chainRoles}
             notesLoaded={!!data.chainNotes}
             tradeLoaded={!!chainTrade}
             onOpenChain={openChain}

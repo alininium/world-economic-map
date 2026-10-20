@@ -1,11 +1,6 @@
-import {
-  CHAIN_BY_ID,
-  POSITION_LABELS,
-  type ChainNote,
-  type ChainTradeTable,
-} from '../../shared/chains';
+import { CHAIN_BY_ID, POSITION_LABELS, type ChainNote } from '../../shared/chains';
 import type { Country } from '../../shared/types';
-import { netTrade, notesFor } from '../data/chains';
+import { notesFor, type NetTrade } from '../data/chains';
 import { formatBreak, formatValue } from '../format';
 import type { ClassBin } from '../map/choropleth';
 import { LegendBins } from '../map/Legend';
@@ -15,25 +10,28 @@ interface Props {
   chain: string;
   stage: string;
   notes: readonly ChainNote[];
-  trade: ChainTradeTable | null;
+  /** Net trade for the stage, sovereign states only, largest net exporter first; null without trade data. */
+  ranked: readonly NetTrade[] | null;
   countries: ReadonlyMap<string, Country>;
-  /** Map legend: diverging net-trade classes, or null when the map highlights named countries. */
+  /** Diverging net-trade classes, or null when the map highlights the countries notes name. */
   bins: readonly ClassBin[] | null;
-  highlightColor: string;
+  supplierColor: string;
+  dependentColor: string;
   noDataColor: string;
   onStage: (stage: string) => void;
   onSelectCountry: (id: string) => void;
 }
 
-/** The production-chain view's card: stages, cited key players and, with trade data, net positions. */
+/** The production-chain view's card: stages, cited notes and, with trade data, net positions. */
 export function ChainCard({
   chain,
   stage,
   notes,
-  trade,
+  ranked,
   countries,
   bins,
-  highlightColor,
+  supplierColor,
+  dependentColor,
   noDataColor,
   onStage,
   onSelectCountry,
@@ -41,13 +39,25 @@ export function ChainCard({
   const def = CHAIN_BY_ID[chain]!;
   const st = def.stages.find((s) => s.id === stage) ?? def.stages[0]!;
   const stageNotes = notesFor(notes, chain, st.id);
-  const stageTrade = trade?.[chain]?.[st.id];
-  const ranked = stageTrade ? netTrade(stageTrade) : [];
-  const name = (id: string) => countries.get(id)?.name ?? id;
-  const countryLink = (id: string) => (
-    <button key={id} type="button" className="link" onClick={() => onSelectCountry(id)}>
-      {name(id)}
-    </button>
+  const countryLinks = (ids: readonly string[]) =>
+    ids.map((id, j) => (
+      <span key={id}>
+        {j > 0 && ', '}
+        <button type="button" className="link" onClick={() => onSelectCountry(id)}>
+          {countries.get(id)?.name ?? id}
+        </button>
+      </span>
+    ));
+  const rankRow = (r: NetTrade) => (
+    <li key={r.id}>
+      <div className="ranking-row">
+        <button type="button" className="link" onClick={() => onSelectCountry(r.id)}>
+          {countries.get(r.id)?.name ?? r.id}
+        </button>
+        <span className="figure-value">{formatValue(r.net, 'usd')}</span>
+        <span className="muted">{r.year}</span>
+      </div>
+    </li>
   );
   return (
     <section className="legend commodity-card" aria-label={`${def.label} production chain`}>
@@ -64,70 +74,51 @@ export function ChainCard({
         ))}
       </ol>
 
-      {stageNotes.length > 0 && (
+      {stageNotes.length > 0 ? (
         <>
-          <h3 className="card-h">Key players (cited)</h3>
+          <h3 className="card-h">What the sources say</h3>
           <ul className="chain-notes">
             {stageNotes.map((n, i) => (
               <li key={i}>
-                <strong>
-                  {n.countries.map((c, j) => (
-                    <span key={c}>
-                      {j > 0 && ', '}
-                      {countryLink(c)}
-                    </span>
-                  ))}
-                </strong>
+                {n.countries.length > 0 && <strong>{countryLinks(n.countries)}</strong>}
+                {n.dependents?.length ? (
+                  <>
+                    {n.countries.length > 0 && ' → '}
+                    <span className="muted">relying: </span>
+                    {countryLinks(n.dependents)}
+                  </>
+                ) : null}
                 : {n.text} {n.asOf && <span className="muted">({n.asOf})</span>}{' '}
                 <Citations sources={n.sources} />
               </li>
             ))}
           </ul>
         </>
+      ) : (
+        <p className="legend-note">No cited notes for this stage yet.</p>
       )}
-      {stageNotes.length === 0 && <p className="legend-note">No cited notes for this stage yet.</p>}
 
       {st.hs.length === 0 ? (
         <p className="legend-note">This stage leaves no trace in customs data.</p>
-      ) : stageTrade ? (
+      ) : ranked ? (
         <>
           <h3 className="card-h">Net trade ({st.hsLabel})</h3>
           <div className="net-lists">
-            <div>
-              <span className="muted small">Largest net exporters</span>
-              <ol className="ranking">
-                {ranked
-                  .filter((r) => r.net > 0)
-                  .slice(0, 5)
-                  .map((r) => (
-                    <li key={r.id}>
-                      <div className="ranking-row">
-                        {countryLink(r.id)}
-                        <span className="figure-value">{formatValue(r.net, 'usd')}</span>
-                        <span className="muted">{r.year}</span>
-                      </div>
-                    </li>
-                  ))}
-              </ol>
-            </div>
-            <div>
-              <span className="muted small">Largest net importers</span>
-              <ol className="ranking">
-                {ranked
-                  .filter((r) => r.net < 0)
-                  .reverse()
-                  .slice(0, 5)
-                  .map((r) => (
-                    <li key={r.id}>
-                      <div className="ranking-row">
-                        {countryLink(r.id)}
-                        <span className="figure-value">{formatValue(r.net, 'usd')}</span>
-                        <span className="muted">{r.year}</span>
-                      </div>
-                    </li>
-                  ))}
-              </ol>
-            </div>
+            <span className="muted small">Largest net exporters</span>
+            <ol className="ranking">
+              {ranked
+                .filter((r) => r.net > 0)
+                .slice(0, 5)
+                .map(rankRow)}
+            </ol>
+            <span className="muted small">Largest net importers</span>
+            <ol className="ranking">
+              {ranked
+                .filter((r) => r.net < 0)
+                .reverse()
+                .slice(0, 5)
+                .map(rankRow)}
+            </ol>
           </div>
           {bins && (
             <LegendBins
@@ -137,20 +128,27 @@ export function ChainCard({
               noDataLabel="Not reported"
             />
           )}
+          <p className="legend-note">
+            Sovereign states; each country’s latest year with both flows.
+          </p>
         </>
       ) : (
-        <p className="legend-note">
-          Trade by stage has not been downloaded yet (<code>npm run data:refresh trade</code>). The
-          map highlights the countries named in the cited notes.
-        </p>
-      )}
-      {!stageTrade && (
-        <ul className="legend-bins">
-          <li>
-            <span className="swatch" style={{ background: highlightColor }} aria-hidden="true" />
-            Named in a cited note for this stage
-          </li>
-        </ul>
+        <>
+          <p className="legend-note">
+            Trade by stage has not been downloaded yet (<code>npm run data:refresh trade</code>).
+            The map shows the countries the cited notes name for this stage.
+          </p>
+          <ul className="legend-bins">
+            <li>
+              <span className="swatch" style={{ background: supplierColor }} aria-hidden="true" />
+              Named as producer or supplier
+            </li>
+            <li>
+              <span className="swatch" style={{ background: dependentColor }} aria-hidden="true" />
+              Named as relying on others
+            </li>
+          </ul>
+        </>
       )}
     </section>
   );

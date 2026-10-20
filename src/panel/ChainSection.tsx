@@ -1,9 +1,10 @@
 import { CHAIN_BY_ID, CHAINS, type ChainNote } from '../../shared/chains';
-import type { CountryStageRole } from '../data/chains';
+import { roleIn, type CountryStageRole } from '../data/chains';
 import { formatValue } from '../format';
 import { Citations } from './Citations';
 
 interface Props {
+  countryId: string;
   notes: readonly ChainNote[];
   roles: readonly CountryStageRole[];
   notesLoaded: boolean;
@@ -12,7 +13,14 @@ interface Props {
 }
 
 /** Where the country sits in each production chain: cited notes and net trade by stage. */
-export function ChainSection({ notes, roles, notesLoaded, tradeLoaded, onOpenChain }: Props) {
+export function ChainSection({
+  countryId,
+  notes,
+  roles,
+  notesLoaded,
+  tradeLoaded,
+  onOpenChain,
+}: Props) {
   const chains = CHAINS.filter(
     (c) => notes.some((n) => n.chain === c.id) || roles.some((r) => r.chain === c.id),
   );
@@ -46,6 +54,9 @@ export function ChainSection({ notes, roles, notesLoaded, tradeLoaded, onOpenCha
                   >
                     {stageLabel(n.chain, n.stage)}
                   </button>
+                  {roleIn(n, countryId) === 'dependent' && (
+                    <span className="muted"> (as relying on others)</span>
+                  )}
                   : {n.text} {n.asOf && <span className="muted">({n.asOf})</span>}{' '}
                   <Citations sources={n.sources} />
                 </li>

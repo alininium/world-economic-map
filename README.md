@@ -226,6 +226,9 @@ downstream stages. Following the agreed hybrid approach, each stage has two kind
 
 1. **Cited notes on key players** (`pipeline/chains/notes.source.json`): short statements about
    named countries.
+   - Each note separates the countries it describes as producers or suppliers from those it
+     describes as relying on them (importers, exposed buyers). The map colors the two
+     differently.
    - Every statement restates what a cited source says, and nothing more. Figures carry the
      year the source gives.
    - The sources are 22 peer-reviewed papers and reports, found through the Consensus academic
@@ -234,7 +237,7 @@ downstream stages. Following the agreed hybrid approach, each stage has two kind
      country or source key.
 2. **Trade-derived roles for every country**: the trade step sums the HS codes that stand for
    each stage (e.g. 8542 for integrated circuits, 850760 for lithium-ion batteries) and computes
-   each country's net exports.
+   each country's net exports, using the latest year in which it reported both flows.
 
 Choosing a chain in the map selector opens a card with the stages, the cited key players and,
 with trade data, the largest net exporters and importers. The map then shows net trade on a

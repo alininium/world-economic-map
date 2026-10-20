@@ -1,5 +1,5 @@
 {
-  "about": "Hand-curated notes on countries' roles in production chains. Every statement restates what the cited source says, with no added figures. Sources were found through the Consensus academic search engine; links point to the Consensus record of each paper. Edit here and run `npm run data:refresh chains`.",
+  "about": "Hand-curated notes on countries' roles in production chains. `countries` are the producers or suppliers a note describes; `dependents` are countries it describes as relying on them. Every statement restates what the cited source says, with no added figures. Sources were found through the Consensus academic search engine; links point to the Consensus record of each paper. Edit here and run `npm run data:refresh chains`.",
   "sources": {
     "zhang2026": {
       "title": "China's semiconductor supply chain landscape and strategies for enhancing global competitiveness",
@@ -63,13 +63,6 @@
       "year": 2026,
       "venue": "Resources, Conservation and Recycling",
       "url": "https://consensus.app/papers/details/eaf05c0c0b9458f788ff0bb8fc6a7588/"
-    },
-    "llamas2023": {
-      "title": "Estimating the environmental impacts of global lithium-ion battery supply chain: A temporal, geographical, and technological perspective",
-      "authors": "Jorge A. Llamas-Orozco et al.",
-      "year": 2023,
-      "venue": "PNAS Nexus",
-      "url": "https://consensus.app/papers/details/390bf3d021a05a90a798e5ea99044916/"
     },
     "mayyas2023": {
       "title": "Can circular economy and cathode chemistry evolution stabilize the supply chain of Li-ion batteries?",
@@ -154,16 +147,16 @@
       "year": 2023,
       "venue": "Nature Food",
       "url": "https://consensus.app/papers/details/a060d3a874e95d898345774eb77e0d28/"
+    },
+    "greitemeier2025j": {
+      "title": "China's hold on the lithium-ion battery supply chain: Prospects for competitive growth and sovereign control",
+      "authors": "Tim Greitemeier et al.",
+      "year": 2025,
+      "venue": "Journal of Power Sources Advances",
+      "url": "https://consensus.app/papers/details/356c37d4111e5e92946724f153dce1de/"
     }
   },
   "notes": [
-    {
-      "chain": "semiconductors",
-      "stage": "equipment",
-      "countries": ["USA", "JPN", "NLD"],
-      "text": "Advanced manufacturing tools for cutting-edge chip processes come from suppliers in the United States, Japan and the Netherlands.",
-      "sources": ["zhang2026"]
-    },
     {
       "chain": "semiconductors",
       "stage": "equipment",
@@ -182,7 +175,7 @@
       "chain": "semiconductors",
       "stage": "chips",
       "countries": ["TWN", "KOR"],
-      "text": "Taiwan and South Korea hold competitive advantages in midstream wafer fabrication, and have kept their technological lead over China in memory and logic chips as measured by US patents.",
+      "text": "Taiwan and South Korea hold competitive advantages in midstream wafer fabrication. By the quantity and quality of US patents they have kept their technological lead over China in key chip segments, though China already leads in patent numbers for high-bandwidth memory.",
       "sources": ["zhang2026", "wong2024"]
     },
     {
@@ -194,10 +187,25 @@
     },
     {
       "chain": "semiconductors",
+      "stage": "chips",
+      "countries": ["CHN"],
+      "text": "Mainland China has scale in downstream chip packaging and testing but remains constrained in high-end chip manufacturing and key technologies.",
+      "sources": ["zhang2026"]
+    },
+    {
+      "chain": "semiconductors",
+      "stage": "equipment",
+      "countries": ["USA", "JPN", "NLD"],
+      "dependents": ["CHN"],
+      "text": "China’s semiconductor equipment trade is highly dependent on Europe and the United States, and its advanced manufacturing tools still come from suppliers in the United States, Japan and the Netherlands.",
+      "sources": ["ren2023", "zhang2026"]
+    },
+    {
+      "chain": "semiconductors",
       "stage": "devices",
       "countries": ["CHN"],
-      "text": "Mainland China has scale in downstream packaging and testing and in electronics assembly, but remains constrained in high-end chip manufacturing and depends on imported equipment from Europe and the United States.",
-      "sources": ["zhang2026", "grimes2024", "ren2023"]
+      "text": "China’s role as a major electronics assembly location drew it into the semiconductor value chain, initially for lower value-added functions such as assembly and packaging.",
+      "sources": ["grimes2024"]
     },
     {
       "chain": "batteries",
@@ -212,16 +220,14 @@
       "stage": "cells",
       "countries": ["CHN"],
       "text": "Counting ownership by company headquarters, China holds the dominant stake in 11 of 12 key battery supply-chain segments and controls over 98% of LFP cathode manufacturing.",
-      "asOf": 2025,
-      "sources": ["greitemeier2025"]
+      "sources": ["greitemeier2025", "greitemeier2025j"]
     },
     {
       "chain": "batteries",
       "stage": "minerals",
       "countries": ["AUS", "ZAF"],
       "text": "Manganese mining is the one segment where China does not hold the largest ownership share: Australian, South African and European companies do.",
-      "asOf": 2025,
-      "sources": ["greitemeier2025"]
+      "sources": ["greitemeier2025", "greitemeier2025j"]
     },
     {
       "chain": "batteries",
@@ -237,13 +243,6 @@
       "countries": ["CHN"],
       "text": "China leads in investment in African cobalt mining, in refining and processing battery raw materials, and in cell production.",
       "sources": ["mayyas2023"]
-    },
-    {
-      "chain": "batteries",
-      "stage": "cells",
-      "countries": ["CHN", "IDN", "AUS"],
-      "text": "About two-thirds of the greenhouse-gas emissions of global battery production occur in three countries: China (45%), Indonesia (13%) and Australia (9%).",
-      "sources": ["llamas2023"]
     },
     {
       "chain": "batteries",
@@ -271,18 +270,27 @@
     {
       "chain": "steel",
       "stage": "crude",
-      "countries": ["CHN", "AUS"],
-      "text": "Iron ore supply and demand follow a pattern of “two countries, two 60%”: China’s share of world steel production approaching 60%, and Australia’s share of seaborne iron ore supply approaching 60%.",
+      "countries": ["CHN"],
+      "text": "China’s share of world steel production is approaching 60%.",
       "asOf": 2021,
       "sources": ["zhangyf2021"]
     },
     {
       "chain": "steel",
       "stage": "ore",
-      "countries": ["CHN", "JPN", "KOR"],
+      "countries": ["AUS"],
+      "text": "Australia’s share of the seaborne iron ore market is approaching 60%.",
+      "asOf": 2021,
+      "sources": ["zhangyf2021"]
+    },
+    {
+      "chain": "steel",
+      "stage": "ore",
+      "countries": [],
       "text": "China imported about 65% of the world’s seaborne iron ore in 2013, followed by Japan (11%), Europe (10%) and Korea (6%).",
       "asOf": 2013,
-      "sources": ["holmes2015"]
+      "sources": ["holmes2015"],
+      "dependents": ["CHN", "JPN", "KOR"]
     },
     {
       "chain": "pharmaceuticals",
@@ -295,9 +303,10 @@
     {
       "chain": "pharmaceuticals",
       "stage": "ingredients",
-      "countries": ["CHN", "IND"],
+      "countries": ["CHN"],
       "text": "China is the largest producer of active pharmaceutical ingredients, with an estimated 40% of global production; India, the largest supplier of generic medicines, procures almost 70% of its active ingredients from China.",
-      "sources": ["ardal2021"]
+      "sources": ["ardal2021"],
+      "dependents": ["IND"]
     },
     {
       "chain": "pharmaceuticals",
@@ -317,24 +326,27 @@
     {
       "chain": "food",
       "stage": "wheat",
-      "countries": ["EGY", "TUR", "MNG", "GEO", "AZE"],
+      "countries": ["UKR"],
       "text": "Egypt, Türkiye, Mongolia, Georgia and Azerbaijan rely heavily on wheat imports from Ukraine.",
-      "sources": ["lin2023"]
+      "sources": ["lin2023"],
+      "dependents": ["EGY", "TUR", "MNG", "GEO", "AZE"]
     },
     {
       "chain": "food",
       "stage": "wheat",
-      "countries": ["EGY", "OMN", "SAU", "LBY", "MRT", "YEM", "LBN"],
+      "countries": ["UKR"],
       "text": "Ukrainian wheat exports fell 39% in 2022, causing import losses above 70% in some of the most exposed countries, with substantial impacts in Egypt, Oman, Saudi Arabia, Libya, Mauritania, Yemen and Lebanon.",
       "asOf": 2022,
-      "sources": ["bertassello2023"]
+      "sources": ["bertassello2023"],
+      "dependents": ["EGY", "OMN", "SAU", "LBY", "MRT", "YEM", "LBN"]
     },
     {
       "chain": "food",
       "stage": "fertiliser",
-      "countries": ["BRA", "USA", "CHN", "IND"],
+      "countries": ["RUS", "UKR"],
       "text": "Disruption of fertiliser exports from Russia and Ukraine affected access to all types of fertiliser in Brazil, the United States, China and India.",
-      "sources": ["zhangzy2023"]
+      "sources": ["zhangzy2023"],
+      "dependents": ["BRA", "USA", "CHN", "IND"]
     }
   ]
 }

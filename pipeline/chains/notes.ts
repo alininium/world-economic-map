@@ -17,8 +17,10 @@ export function validateNotes(file: SourceFile, validIds: ReadonlySet<string>): 
     const chain = CHAIN_BY_ID[n.chain];
     if (!chain) problems.push(`${where}: unknown chain`);
     else if (!chain.stages.some((s) => s.id === n.stage)) problems.push(`${where}: unknown stage`);
-    for (const c of n.countries)
+    for (const c of [...n.countries, ...(n.dependents ?? [])]) {
       if (!validIds.has(c)) problems.push(`${where}: unknown country ${c}`);
+    }
+    if (!n.countries.length && !n.dependents?.length) problems.push(`${where}: names no country`);
     if (!n.sources.length) problems.push(`${where}: no source`);
     const sources = n.sources.map((key) => {
       const s = file.sources[key];

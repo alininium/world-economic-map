@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ChainNote } from '../../shared/chains';
-import { countryChainTrade, netTrade, notesAbout, notesFor } from './chains';
+import { countryChainTrade, netTrade, notesAbout, notesFor, roleIn } from './chains';
 
 // Invented values; only the arithmetic and filtering are under test.
 describe('netTrade', () => {
@@ -55,5 +55,13 @@ describe('notes filters', () => {
     expect(notesFor(notes, 'steel', 'ore')).toHaveLength(1);
     expect(notesFor(notes, 'steel')).toHaveLength(2);
     expect(notesAbout(notes, 'CHN')).toHaveLength(1);
+  });
+
+  it('finds countries named as dependents and tells the roles apart', () => {
+    const n: ChainNote = { ...note('food', 'wheat', ['UKR']), dependents: ['EGY'] };
+    expect(notesAbout([n], 'EGY')).toHaveLength(1);
+    expect(roleIn(n, 'UKR')).toBe('supplier');
+    expect(roleIn(n, 'EGY')).toBe('dependent');
+    expect(roleIn(n, 'FRA')).toBeNull();
   });
 });

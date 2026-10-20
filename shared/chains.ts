@@ -107,14 +107,15 @@ export const CHAINS: readonly ChainDef[] = [
   {
     id: 'steel',
     label: 'Steel',
-    description: 'From iron ore and coking coal to steel and steel products.',
+    description: 'From iron ore to steel and steel products.',
     stages: [
       {
+        // Coking coal is not separable from thermal coal at HS6, so it is left out.
         id: 'ore',
-        label: 'Iron ore and coking coal',
+        label: 'Iron ore',
         position: 'upstream',
-        hs: ['2601', '270112'],
-        hsLabel: 'iron ores (2601), bituminous coal (270112)',
+        hs: ['2601'],
+        hsLabel: 'iron ores and concentrates (2601)',
       },
       {
         id: 'crude',
@@ -209,8 +210,10 @@ export interface Citation {
 export interface ChainNote {
   chain: string;
   stage: string;
-  /** Country ids the statement is about. */
+  /** Producers or suppliers the statement describes. */
   countries: string[];
+  /** Countries the statement describes as relying on them (importers, exposed buyers). */
+  dependents?: string[];
   text: string;
   /** Year the statement refers to, when the source gives one. */
   asOf?: number;

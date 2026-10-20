@@ -191,6 +191,41 @@ export function commodityTrade(
   return table;
 }
 
+/**
+ * Like tradeByCodes, but for netting: each reporter's two flows come from the latest year in
+ * which it reported both; a reporter with only one flow keeps that flow's latest year.
+ */
+export function pairedTrade(
+  rows: readonly ComtradeRow[],
+  codes: readonly string[],
+  reporterIds: ReadonlyMap<number, string>,
+): StageTrade {
+  const wanted = new Set(codes);
+  // reporter id → flow → year → summed value
+  const sums = new Map<string, Record<'X' | 'M', Map<number, number>>>();
+  for (const r of rows) {
+    if (r.partnerCode !== 0 || !wanted.has(r.cmdCode) || !r.primaryValue) continue;
+    if (r.flowCode !== 'X' && r.flowCode !== 'M') continue;
+    const id = reporterIds.get(r.reporterCode);
+    if (!id) continue;
+    const entry = sums.get(id) ?? { X: new Map<number, number>(), M: new Map<number, number>() };
+    const y = Number(r.period);
+    entry[r.flowCode].set(y, (entry[r.flowCode].get(y) ?? 0) + r.primaryValue);
+    sums.set(id, entry);
+  }
+  const out: StageTrade = { exports: {}, imports: {} };
+  for (const [id, { X, M }] of sums) {
+    const shared = [...X.keys()].filter((y) => M.has(y));
+    const pick = (flow: Map<number, number>) =>
+      shared.length ? Math.max(...shared) : flow.size ? Math.max(...flow.keys()) : null;
+    const xy = pick(X);
+    const my = pick(M);
+    if (xy !== null && X.has(xy)) out.exports[id] = { value: X.get(xy)!, year: xy };
+    if (my !== null && M.has(my)) out.imports[id] = { value: M.get(my)!, year: my };
+  }
+  return out;
+}
+
 /** Exports and imports per production-chain stage; stages without HS codes are left out. */
 export function chainTrade(
   rows: readonly ComtradeRow[],
@@ -200,7 +235,7 @@ export function chainTrade(
   for (const chain of CHAINS) {
     for (const stage of chain.stages) {
       if (!stage.hs.length) continue;
-      (table[chain.id] ??= {})[stage.id] = tradeByCodes(rows, stage.hs, reporterIds);
+      (table[chain.id] ??= {})[stage.id] = pairedTrade(rows, stage.hs, reporterIds);
     }
   }
   return table;
@@ -272,6 +307,9 @@ export function buildProfile(
     exportHhi: hhi(x.productValues),
   };
 }
+
+const yearRange = (years: number[]) =>
+  years.length ? `${Math.min(...years)}–${Math.max(...years)}` : null;
 
 const chunk = <T>(xs: T[], n: number): T[][] =>
   Array.from({ length: Math.ceil(xs.length / n) }, (_, i) => xs.slice(i * n, i * n + n));
@@ -416,16 +454,24 @@ export async function runComtrade(): Promise<void> {
     },
     commodityTable,
   );
+  const chainTable = chainTrade(commodityRows, reporterIds);
   await writeDataset(
     CHAIN_FILES.trade,
     {
       ...meta,
       id: 'comtrade-chains',
       title: 'Production-chain trade by stage',
+      dataYear: yearRange(
+        Object.values(chainTable).flatMap((stages) =>
+          Object.values(stages).flatMap((t) =>
+            [...Object.values(t.exports), ...Object.values(t.imports)].map((o) => o.year),
+          ),
+        ),
+      ),
       notes:
         'Exports and imports with the world of the HS codes standing for each production-chain stage (see shared/chains.ts). Reporter-declared values in US dollars; latest year within 3 years per reporter, stage and flow.',
     },
-    chainTrade(commodityRows, reporterIds),
+    chainTable,
   );
   await recordInManifest('trade/by-country/', {
     ...meta,

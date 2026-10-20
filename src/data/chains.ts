@@ -45,4 +45,8 @@ export const notesFor = (notes: readonly ChainNote[], chain: string, stage?: str
   notes.filter((n) => n.chain === chain && (!stage || n.stage === stage));
 
 export const notesAbout = (notes: readonly ChainNote[], id: string) =>
-  notes.filter((n) => n.countries.includes(id));
+  notes.filter((n) => n.countries.includes(id) || n.dependents?.includes(id));
+
+/** How a note describes a country: as a producer/supplier, or as relying on others. */
+export const roleIn = (note: ChainNote, id: string): 'supplier' | 'dependent' | null =>
+  note.countries.includes(id) ? 'supplier' : note.dependents?.includes(id) ? 'dependent' : null;

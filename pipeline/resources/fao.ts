@@ -25,23 +25,34 @@ export function streamZipLines(
   zip: Uint8Array,
   onLine: (line: string) => void,
   pick: (name: string) => boolean = (n) => n.toLowerCase().endsWith('.csv'),
+  slice = 8 << 20,
 ): void {
   const unzip = new Unzip();
   unzip.register(UnzipInflate);
   const decoder = new TextDecoder('utf-8');
   let rest = '';
+  const feed = (bytes: Uint8Array, last: boolean) => {
+    const lines = (rest + decoder.decode(bytes, { stream: !last })).split(/\r?\n/);
+    rest = last ? '' : (lines.pop() ?? '');
+    for (const l of lines) if (l) onLine(l);
+  };
   unzip.onfile = (file) => {
     if (!pick(file.name)) return;
     file.ondata = (err, chunk, final) => {
       if (err) throw err;
-      const text = rest + decoder.decode(chunk, { stream: !final });
-      const lines = text.split(/\r?\n/);
-      rest = final ? '' : (lines.pop() ?? '');
-      for (const l of lines) if (l) onLine(l);
+      // Decode in slices: an inflated chunk can exceed V8's maximum string length.
+      let i = 0;
+      do {
+        feed(chunk.subarray(i, i + slice), final && i + slice >= chunk.length);
+        i += slice;
+      } while (i < chunk.length);
     };
     file.start();
   };
-  unzip.push(zip, true);
+  // Pushed in slices too, so inflated chunks stay small instead of one whole-file buffer.
+  for (let i = 0; i < zip.length; i += slice) {
+    unzip.push(zip.subarray(i, i + slice), i + slice >= zip.length);
+  }
 }
 
 /** The archive's data table, not its code lists. */

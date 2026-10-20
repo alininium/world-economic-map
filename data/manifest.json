@@ -15,6 +15,19 @@
       }
     },
     {
+      "path": "chains/trade.json",
+      "meta": {
+        "id": "comtrade-chains",
+        "title": "Production-chain trade by stage",
+        "source": "United Nations, UN Comtrade database (API v1), annual HS data as reported",
+        "sourceUrl": "https://comtradeplus.un.org/",
+        "license": "UN Comtrade terms of use: free for non-commercial use with attribution",
+        "retrievedAt": "2026-10-20",
+        "dataYear": "2023–2025",
+        "notes": "Exports and imports with the world of the HS codes standing for each production-chain stage (see shared/chains.ts). Reporter-declared values in US dollars; latest year within 3 years per reporter, stage and flow."
+      }
+    },
+    {
       "path": "countries.json",
       "meta": {
         "source": "Natural Earth 1:50m Admin 0 – Countries (v5.1.2); territory policy in pipeline/geo/territories.ts",
@@ -117,6 +130,19 @@
       }
     },
     {
+      "path": "resources/trade.json",
+      "meta": {
+        "id": "comtrade-commodities",
+        "title": "Strategic commodity trade",
+        "source": "United Nations, UN Comtrade database (API v1), annual HS data as reported",
+        "sourceUrl": "https://comtradeplus.un.org/",
+        "license": "UN Comtrade terms of use: free for non-commercial use with attribution",
+        "retrievedAt": "2026-10-20",
+        "dataYear": "2023–2025",
+        "notes": "Exports and imports of each strategic commodity with the world, summing its HS codes (see shared/commodities.ts). Reporter-declared values in US dollars; latest year within 3 years per reporter and commodity. No world total: not every country reports."
+      }
+    },
+    {
       "path": "resources/usgs.json",
       "meta": {
         "id": "usgs",
@@ -127,6 +153,32 @@
         "retrievedAt": "2026-10-20",
         "dataYear": "2024",
         "notes": "Mine and refinery production and reserves as published, in each commodity's USGS unit. Withheld (W) and unavailable values are missing."
+      }
+    },
+    {
+      "path": "trade/by-country/",
+      "meta": {
+        "id": "comtrade-profiles",
+        "title": "Trade profiles per country",
+        "source": "United Nations, UN Comtrade database (API v1), annual HS data as reported",
+        "sourceUrl": "https://comtradeplus.un.org/",
+        "license": "UN Comtrade terms of use: free for non-commercial use with attribution",
+        "retrievedAt": "2026-10-20",
+        "dataYear": "2023–2025",
+        "notes": "Goods only (no services). Reporter-declared values: exports FOB, imports CIF. Latest year within 3 years per reporter; countries that did not report are missing."
+      }
+    },
+    {
+      "path": "trade/summary.json",
+      "meta": {
+        "id": "comtrade",
+        "title": "UN Comtrade merchandise trade",
+        "source": "United Nations, UN Comtrade database (API v1), annual HS data as reported",
+        "sourceUrl": "https://comtradeplus.un.org/",
+        "license": "UN Comtrade terms of use: free for non-commercial use with attribution",
+        "retrievedAt": "2026-10-20",
+        "dataYear": "2023–2025",
+        "notes": "Goods only (no services). Reporter-declared values: exports FOB, imports CIF. Latest year within 3 years per reporter; countries that did not report are missing."
       }
     }
   ]

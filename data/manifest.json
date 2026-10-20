@@ -52,6 +52,19 @@
       }
     },
     {
+      "path": "macro/imf.json",
+      "meta": {
+        "id": "imf",
+        "title": "IMF World Economic Outlook",
+        "source": "International Monetary Fund, World Economic Outlook (DataMapper API)",
+        "sourceUrl": "https://www.imf.org/external/datamapper/",
+        "license": "IMF copyright; free reuse with attribution (imf.org/external/terms.htm)",
+        "retrievedAt": "2026-10-20",
+        "dataYear": "≤ 2025",
+        "notes": "Latest completed year per country. Figures for the most recent year may be IMF staff estimates. Values in billions/millions are converted to units."
+      }
+    },
+    {
       "path": "macro/worldbank-history.json",
       "meta": {
         "id": "worldbank-history",
@@ -88,6 +101,19 @@
         "retrievedAt": "2026-10-20",
         "dataYear": "2024",
         "notes": "Oil, gas and coal production in terawatt-hours of primary energy."
+      }
+    },
+    {
+      "path": "resources/fao.json",
+      "meta": {
+        "id": "fao",
+        "title": "Crop production",
+        "source": "FAO, FAOSTAT Crops and livestock products (QCL), bulk download",
+        "sourceUrl": "https://www.fao.org/faostat/en/#data/QCL",
+        "license": "CC BY 4.0 (FAO statistical databases)",
+        "retrievedAt": "2026-10-20",
+        "dataYear": "2024",
+        "notes": "Production quantity in tonnes. China is FAOSTAT “China, mainland” (M49 156); Taiwan is reported separately."
       }
     },
     {

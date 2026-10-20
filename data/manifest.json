@@ -1,0 +1,29 @@
+{
+  "generatedAt": "2026-10-20",
+  "datasets": [
+    {
+      "path": "countries.json",
+      "meta": {
+        "source": "Natural Earth 1:50m Admin 0 – Countries (v5.1.2); territory policy in pipeline/geo/territories.ts",
+        "sourceUrl": "https://www.naturalearthdata.com/downloads/50m-cultural-vectors/",
+        "license": "Public domain (Natural Earth terms of use)",
+        "retrievedAt": "2026-10-20",
+        "dataYear": "v5.1.2",
+        "id": "countries",
+        "title": "Country list"
+      }
+    },
+    {
+      "path": "geo/countries.topo.json",
+      "meta": {
+        "source": "Natural Earth 1:50m Admin 0 – Countries (v5.1.2); territory policy in pipeline/geo/territories.ts",
+        "sourceUrl": "https://www.naturalearthdata.com/downloads/50m-cultural-vectors/",
+        "license": "Public domain (Natural Earth terms of use)",
+        "retrievedAt": "2026-10-20",
+        "dataYear": "v5.1.2",
+        "id": "geo",
+        "title": "Country boundaries (TopoJSON)"
+      }
+    }
+  ]
+}

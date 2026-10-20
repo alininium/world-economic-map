@@ -27,6 +27,12 @@ describe('formatValue', () => {
 });
 
 describe('compact and formatBreak', () => {
+  it('moves to the next unit when rounding reaches it', () => {
+    expect(formatValue(999.7e9, 'usd')).toBe('$1.00 tn');
+    expect(formatValue(99.996e9, 'usd')).toBe('$100 bn');
+    expect(formatValue(999999.6, 'usd')).toBe('$1.00 m');
+  });
+
   it('uses three significant digits', () => {
     expect(compact(1_234_567)).toBe('1.23 m');
     expect(compact(950)).toBe('950');

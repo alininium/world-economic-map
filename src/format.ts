@@ -8,9 +8,10 @@ const SCALES: [number, string][] = [
 
 /** 1234567 → "1.23 m"; keeps three significant digits. */
 export function compact(n: number): string {
-  const abs = Math.abs(n);
+  // Round first so 999.7 bn becomes "1.00 tn", not "1000 bn".
+  const rounded = Number(Math.abs(n).toPrecision(3));
   for (const [size, suffix] of SCALES) {
-    if (abs >= size) return `${trim(n / size)}${suffix}`;
+    if (rounded >= size) return `${n < 0 ? '-' : ''}${trim(rounded / size)}${suffix}`;
   }
   return Math.round(n).toLocaleString('en-US');
 }
@@ -28,13 +29,13 @@ export function formatValue(value: number | null | undefined, unit: Unit): strin
   const abs = Math.abs(value);
   switch (unit) {
     case 'usd':
-      return abs < 1e6
-        ? `${sign}$${Math.round(abs).toLocaleString('en-US')}`
-        : `${sign}$${compact(abs)}`;
-    case 'intl_usd':
-      return abs < 1e6
-        ? `${sign}Int$${Math.round(abs).toLocaleString('en-US')}`
-        : `${sign}Int$${compact(abs)}`;
+    case 'intl_usd': {
+      const prefix = unit === 'usd' ? '$' : 'Int$';
+      const whole = Math.round(abs);
+      return whole < 1e6
+        ? `${sign}${prefix}${whole.toLocaleString('en-US')}`
+        : `${sign}${prefix}${compact(abs)}`;
+    }
     case 'percent':
       return `${sign}${abs.toFixed(1)}%`;
     case 'percent_gdp':

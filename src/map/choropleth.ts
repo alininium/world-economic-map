@@ -51,15 +51,24 @@ export function buildClasses(
   values: readonly number[],
   kind: ScaleKind,
   palette: Pick<MapPalette, 'sequential' | 'negative' | 'positive'>,
+  /** Every value that will be coloured (including unranked entities); defaults to `values`. */
+  allValues: readonly number[] = values,
 ): ClassBin[] {
   const finite = values.filter(Number.isFinite);
-  if (!finite.length) return [];
+  const allFinite = allValues.filter(Number.isFinite);
+  if (!finite.length && !allFinite.length) return [];
   if (kind === 'sequential') {
-    const t = quantileThresholds(finite, palette.sequential.length);
+    const t = quantileThresholds(finite.length ? finite : allFinite, palette.sequential.length);
     return binsFrom(t, palette.sequential, -Infinity, Infinity);
   }
-  const neg = finite.filter((v) => v < 0);
-  const pos = finite.filter((v) => v >= 0);
+  // Each sign that occurs anywhere gets its arm, so a negative value is never drawn in a
+  // positive class; breaks come from ranked values when that sign has any.
+  const armValues = (test: (v: number) => boolean) => {
+    const ranked = finite.filter(test);
+    return ranked.length ? ranked : allFinite.filter(test);
+  };
+  const neg = armValues((v) => v < 0);
+  const pos = armValues((v) => v >= 0);
   const negBins = neg.length
     ? binsFrom(quantileThresholds(neg, palette.negative.length), palette.negative, -Infinity, 0)
     : [];
@@ -69,6 +78,7 @@ export function buildClasses(
   return [...negBins, ...posBins];
 }
 
+/** Bins span (-∞, ∞) for sequential metrics and each present sign for diverging ones. */
 export function colorFor(value: number, bins: readonly ClassBin[]): string | undefined {
-  return bins.find((b) => value >= b.min && value < b.max)?.color ?? bins.at(-1)?.color;
+  return bins.find((b) => value >= b.min && value < b.max)?.color;
 }

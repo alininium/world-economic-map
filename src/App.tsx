@@ -26,7 +26,9 @@ function idFromHash(): string | null {
 
 function metricFromUrl(): IndicatorKey | null {
   const m = new URLSearchParams(window.location.search).get('metric');
-  return m && m in INDICATOR_BY_KEY ? (m as IndicatorKey) : null;
+  return m && Object.hasOwn(INDICATOR_BY_KEY, m) && INDICATOR_BY_KEY[m as IndicatorKey].choropleth
+    ? (m as IndicatorKey)
+    : null;
 }
 
 /** Shown in the tooltip when no metric is selected. */
@@ -119,7 +121,8 @@ export function App() {
         return c && SOVEREIGN_STATUSES.has(c.status);
       })
       .map(([, f]) => f.value);
-    const bins = buildClasses(ranked, def.scaleKind, palette);
+    const all = Object.values(figures).map((f) => f.value);
+    const bins = buildClasses(ranked, def.scaleKind, palette, all);
     const colors: Record<string, string> = {};
     for (const [id, f] of Object.entries(figures)) {
       const color = colorFor(f.value, bins);

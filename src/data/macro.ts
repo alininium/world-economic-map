@@ -1,3 +1,4 @@
+import type { Country } from '../../shared/types';
 import {
   INDICATORS,
   type IndicatorKey,
@@ -16,8 +17,15 @@ export interface Figure {
 export type MacroIndex = Record<IndicatorKey, Record<string, Figure>>;
 
 /**
+ * A fallback figure replaces the primary one only when it is at least this many years newer;
+ * otherwise the primary source is kept for consistency across countries.
+ */
+export const FALLBACK_NEWER_BY = 3;
+
+/**
  * Resolves each indicator per country: the first series (in catalogue order) that has a
- * value wins, so a fallback source only fills countries the primary source lacks.
+ * value wins, so a fallback source fills countries the primary source lacks, and replaces a
+ * primary figure only when that figure is FALLBACK_NEWER_BY or more years older.
  */
 export function buildMacroIndex(tables: Partial<Record<SourceId, SeriesTable>>): MacroIndex {
   const index = {} as MacroIndex;
@@ -27,7 +35,10 @@ export function buildMacroIndex(tables: Partial<Record<SourceId, SeriesTable>>):
       const series = tables[source]?.[code];
       if (!series) continue;
       for (const [id, obs] of Object.entries(series)) {
-        byCountry[id] ??= { ...obs, source, code };
+        const current = byCountry[id];
+        if (!current || obs.year - current.year >= FALLBACK_NEWER_BY) {
+          byCountry[id] = { ...obs, source, code };
+        }
       }
     }
     index[def.key] = byCountry;
@@ -40,9 +51,15 @@ export const SOURCE_LABELS: Record<SourceId, string> = {
   imf: 'IMF WEO',
 };
 
-export function sourceLink(source: SourceId, code: string, iso2: string | null): string {
+/** Link to the series on the source's own site, scoped to the country where the site allows. */
+export function sourceLink(
+  source: SourceId,
+  code: string,
+  country: Pick<Country, 'id' | 'iso2'>,
+): string {
   if (source === 'worldbank') {
-    return `https://data.worldbank.org/indicator/${code}${iso2 ? `?locations=${iso2}` : ''}`;
+    const loc = country.iso2 ? `?locations=${country.iso2}` : '';
+    return `https://data.worldbank.org/indicator/${code}${loc}`;
   }
-  return `https://www.imf.org/external/datamapper/${code}`;
+  return `https://www.imf.org/external/datamapper/${code}@WEO/${country.id}`;
 }

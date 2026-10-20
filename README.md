@@ -103,7 +103,8 @@ dispute.
 
 Indicators and their sources are listed in `shared/indicators.ts`. Each has a primary series
 and, where the IMF publishes a comparable one, a fallback used only for countries the primary
-source lacks (the World Bank has nothing for Taiwan, for example). The panel shows the year
+source lacks (the World Bank has nothing for Taiwan, for example), or whose primary figure is
+at least three years older than the fallback's. The panel shows the year
 and source next to every figure and links to the original series. The tooltip and legend name
 the source too.
 

@@ -44,7 +44,7 @@ export function MacroSnapshot({ country, macro, loaded, currencies, currencyMeta
                       </span>{' '}
                       ·{' '}
                       <a
-                        href={sourceLink(fig.source, fig.code, country.iso2)}
+                        href={sourceLink(fig.source, fig.code, country)}
                         target="_blank"
                         rel="noreferrer"
                       >

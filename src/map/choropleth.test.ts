@@ -45,6 +45,12 @@ describe('buildClasses', () => {
     expect(bins.every((b) => b.color.startsWith('p-'))).toBe(true);
   });
 
+  it('gives an unranked negative value a negative class even when no ranked value is negative', () => {
+    const bins = buildClasses([1, 2, 3], 'diverging', palette, [1, 2, 3, -4]);
+    expect(colorFor(-4, bins)).toMatch(/^n-/);
+    expect(colorFor(2, bins)).toMatch(/^p-/);
+  });
+
   it('returns no classes when there is no data', () => {
     expect(buildClasses([], 'sequential', palette)).toEqual([]);
   });

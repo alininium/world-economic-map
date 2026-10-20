@@ -8,10 +8,18 @@ async function getJson<T>(relPath: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-/** Loads a dataset only if the manifest lists it, i.e. the pipeline has produced it. */
+/**
+ * Loads an optional dataset if the manifest lists it (the pipeline has produced it). A broken
+ * optional file is logged and treated as not loaded rather than taking the whole app down.
+ */
 async function getListed<T>(manifest: Manifest, relPath: string): Promise<Dataset<T> | null> {
-  if (!manifest.datasets.some((d) => d.path === relPath)) return null;
-  return getJson<Dataset<T>>(relPath);
+  if (!metaFor(manifest, relPath)) return null;
+  try {
+    return await getJson<Dataset<T>>(relPath);
+  } catch (err) {
+    console.warn(`Skipping ${relPath}:`, err);
+    return null;
+  }
 }
 
 export interface AppData {
@@ -24,10 +32,14 @@ export interface AppData {
 }
 
 export async function loadAppData(): Promise<AppData> {
-  const manifest = await getJson<Manifest>('manifest.json');
-  const [countries, topo, worldbank, imf, currencies] = await Promise.all([
+  // Required files start at once; only the optional ones wait for the manifest.
+  const required = Promise.all([
     getJson<Dataset<Country[]>>('countries.json'),
     getJson<Topology>('geo/countries.topo.json'),
+  ]);
+  const manifest = await getJson<Manifest>('manifest.json');
+  const [[countries, topo], worldbank, imf, currencies] = await Promise.all([
+    required,
     getListed<SeriesTable>(manifest, 'macro/worldbank.json'),
     getListed<SeriesTable>(manifest, 'macro/imf.json'),
     getListed<CurrencyTable>(manifest, 'currencies.json'),

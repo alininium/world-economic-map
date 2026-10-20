@@ -48,9 +48,10 @@ export interface Fetched {
 /** Node reports network failures as "fetch failed" with the reason in `cause`; surface it. */
 function describe(err: unknown, url: string): Error {
   if (err instanceof HttpError) return err;
-  const cause = (err as { cause?: { code?: string; message?: string } }).cause;
+  const message = err instanceof Error ? err.message : String(err);
+  const cause = (err as { cause?: { code?: string; message?: string } } | null)?.cause;
   const reason = cause?.code ?? cause?.message;
-  return new Error(`${(err as Error).message}${reason ? ` (${reason})` : ''} for ${url}`);
+  return new Error(`${message}${reason ? ` (${reason})` : ''} for ${url}`, { cause: err });
 }
 
 const isoDate = (d: Date) => d.toISOString().slice(0, 10);

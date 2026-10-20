@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMacroIndex } from './macro';
+import { buildMacroIndex, sourceLink } from './macro';
 
 describe('buildMacroIndex', () => {
   // Made-up values; only the precedence logic is under test.
@@ -19,8 +19,30 @@ describe('buildMacroIndex', () => {
     expect(index.gdp.TWN).toMatchObject({ value: 800, source: 'imf' });
   });
 
+  it('replaces a primary figure only when the fallback is clearly newer', () => {
+    const idx = buildMacroIndex({
+      worldbank: {
+        'SL.UEM.TOTL.ZS': { OLD: { value: 9, year: 2017 }, NEW: { value: 5, year: 2023 } },
+      },
+      imf: { LUR: { OLD: { value: 7, year: 2025 }, NEW: { value: 4, year: 2025 } } },
+    });
+    expect(idx.unemployment.OLD).toMatchObject({ value: 7, year: 2025, source: 'imf' });
+    expect(idx.unemployment.NEW).toMatchObject({ value: 5, year: 2023, source: 'worldbank' });
+  });
+
   it('leaves indicators empty when their source is not loaded', () => {
     expect(index.tradeBalance).toEqual({});
     expect(index.govDebt.AAA?.source).toBe('imf');
+  });
+});
+
+describe('sourceLink', () => {
+  it('scopes links to the country', () => {
+    expect(sourceLink('worldbank', 'NY.GDP.MKTP.CD', { id: 'FRA', iso2: 'FR' })).toBe(
+      'https://data.worldbank.org/indicator/NY.GDP.MKTP.CD?locations=FR',
+    );
+    expect(sourceLink('imf', 'NGDPD', { id: 'TWN', iso2: 'TW' })).toBe(
+      'https://www.imf.org/external/datamapper/NGDPD@WEO/TWN',
+    );
   });
 });

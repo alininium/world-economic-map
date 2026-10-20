@@ -4,16 +4,19 @@
  * A failing step is reported and the others still run; the exit code is non-zero if any failed.
  */
 import { runGeo } from './geo/build';
+import { loadEnv } from './lib/env';
 import { setUseCache } from './lib/fetch';
 import { runCurrencies } from './macro/currencies';
 import { runImf } from './macro/imf';
 import { runWorldBank } from './macro/worldbank';
+import { runComtrade } from './trade/comtrade';
 
 const STEPS: Record<string, () => Promise<void>> = {
   geo: runGeo,
   worldbank: runWorldBank,
   imf: runImf,
   currencies: runCurrencies,
+  trade: runComtrade,
 };
 
 /** Shorthands for several steps. */
@@ -21,6 +24,7 @@ const GROUPS: Record<string, string[]> = {
   macro: ['worldbank', 'imf', 'currencies'],
 };
 
+loadEnv();
 const args = process.argv.slice(2);
 setUseCache(args.includes('--cached'));
 const requested = args.filter((a) => !a.startsWith('--')).flatMap((a) => GROUPS[a] ?? [a]);

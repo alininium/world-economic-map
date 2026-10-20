@@ -1,4 +1,10 @@
-import { LngLatBounds, Map as MapLibreMap, NavigationControl, setWorkerUrl } from 'maplibre-gl';
+import {
+  LngLatBounds,
+  Map as MapLibreMap,
+  NavigationControl,
+  setWorkerUrl,
+  type GeoJSONSource,
+} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
@@ -8,6 +14,8 @@ import { paletteFor } from './palette';
 import {
   HATCH_IMAGE,
   INTERACTIVE_LAYERS,
+  EMPTY_FLOWS,
+  SOURCE_FLOWS,
   SOURCE_MARKERS,
   SOURCE_SHAPES,
   applyHatch,
@@ -34,6 +42,8 @@ interface Props {
   darkMode: boolean;
   /** Colours for the active choropleth metric, or null for the plain political map. */
   fillColors: FillColors;
+  /** Trade-flow lines for the selected country, or null for none. */
+  flows: GeoJSON.FeatureCollection | null;
   /** Measures the map area covered by other UI (the detail panel) at the moment the camera moves. */
   getObscured: () => { right: number; bottom: number };
   onSelect: (id: string | null) => void;
@@ -57,6 +67,7 @@ export function WorldMap({
   focus,
   darkMode,
   fillColors,
+  flows,
   getObscured,
   onSelect,
   renderTooltip,
@@ -160,6 +171,24 @@ export function WorldMap({
     if (prev.darkMode !== darkMode) applyHatch(map, palette);
     applied.current = { darkMode, fillColors };
   }, [darkMode, fillColors, loaded]);
+
+  // Draw trade flows and bring all their end points into view.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loaded) return;
+    map.getSource<GeoJSONSource>(SOURCE_FLOWS)?.setData(flows ?? EMPTY_FLOWS);
+    const coords = flows?.features.flatMap((f) =>
+      f.geometry.type === 'LineString' ? (f.geometry.coordinates as [number, number][]) : [],
+    );
+    if (!coords?.length) return;
+    const bounds = coords.reduce((b, c) => b.extend(c), new LngLatBounds(coords[0]!, coords[0]!));
+    const obscured = latest.current.getObscured();
+    map.fitBounds(bounds, {
+      padding: { top: 72, left: 40, right: 40 + obscured.right, bottom: 40 + obscured.bottom },
+      maxZoom: 4,
+      duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 900,
+    });
+  }, [flows, loaded]);
 
   // Mirror the selection into feature state.
   useEffect(() => {

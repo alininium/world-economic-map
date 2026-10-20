@@ -1,12 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { INDICATOR_BY_KEY, INDICATORS, type IndicatorKey } from '../shared/indicators';
 import { SOVEREIGN_STATUSES, STATUS_LABELS } from '../shared/status';
+import type { TradeProfile } from '../shared/trade';
 import type { Country } from '../shared/types';
 import { MetricPicker } from './controls/MetricPicker';
-import { loadAppData, metaFor, type AppData } from './data/load';
+import { loadAppData, loadTradeProfile, metaFor, type AppData } from './data/load';
 import { buildMacroIndex, SOURCE_LABELS } from './data/macro';
 import { formatValue } from './format';
 import { buildClasses, colorFor } from './map/choropleth';
+import { flowLines } from './map/flows';
 import { toMapFeatures } from './map/geometry';
 import { Legend } from './map/Legend';
 import { paletteFor } from './map/palette';
@@ -15,6 +17,9 @@ import { CountryPanel } from './panel/CountryPanel';
 import { MacroSnapshot } from './panel/MacroSnapshot';
 import { CountrySearch } from './search/CountrySearch';
 import { useMediaQuery } from './useMediaQuery';
+
+// ECharts is only needed once a country is opened; keep it out of the initial bundle.
+const TradeSection = lazy(() => import('./panel/TradeSection'));
 
 function idFromHash(): string | null {
   try {
@@ -44,6 +49,9 @@ export function App() {
     return id ? { id, nonce: 0 } : null;
   });
   const darkMode = useMediaQuery('(prefers-color-scheme: dark)');
+  /** The selected country's trade profile; `profile` is null when it has none. */
+  const [trade, setTrade] = useState<{ id: string; profile: TradeProfile | null } | null>(null);
+  const [showFlows, setShowFlows] = useState(true);
   const panelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -92,6 +100,7 @@ export function App() {
       buildMacroIndex({
         worldbank: data?.macro.worldbank?.data,
         imf: data?.macro.imf?.data,
+        comtrade: data?.macro.comtrade?.data,
       }),
     [data],
   );
@@ -130,6 +139,17 @@ export function App() {
     }
     return { def, bins, colors, figures: Object.values(figures) };
   }, [activeMetric, macro, byId, palette]);
+
+  useEffect(() => {
+    if (!data || !selectedId) return;
+    let cancelled = false;
+    loadTradeProfile(data.manifest, selectedId).then((profile) => {
+      if (!cancelled) setTrade({ id: selectedId, profile });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [data, selectedId]);
 
   const select = useCallback((id: string | null) => setSelectedId(id), []);
   const selectAndFocus = useCallback(
@@ -171,6 +191,11 @@ export function App() {
 
   const selected = selectedId ? byId.get(selectedId) : undefined;
   const boundariesMeta = data && metaFor(data.manifest, 'geo/countries.topo.json');
+  const tradeProfile = trade && trade.id === selectedId ? trade.profile : undefined;
+  const flows = useMemo(
+    () => (selected && tradeProfile && showFlows ? flowLines(selected, tradeProfile, byId) : null),
+    [selected, tradeProfile, showFlows, byId],
+  );
 
   return (
     <div className={`app ${selected ? 'has-panel' : ''}`}>
@@ -195,6 +220,7 @@ export function App() {
           focus={focus}
           darkMode={darkMode}
           fillColors={choropleth?.colors ?? null}
+          flows={flows}
           getObscured={getObscured}
           onSelect={select}
           renderTooltip={renderTooltip}
@@ -227,6 +253,20 @@ export function App() {
             currencies={data.currencies?.data[selected.id]}
             currencyMeta={data.currencies?.meta}
           />
+          {tradeProfile === undefined ? (
+            <p className="muted small">Loading trade…</p>
+          ) : (
+            <Suspense fallback={<p className="muted small">Loading trade…</p>}>
+              <TradeSection
+                profile={tradeProfile}
+                meta={metaFor(data.manifest, 'trade/by-country/')}
+                darkMode={darkMode}
+                colors={{ exports: palette.flowExports, imports: palette.flowImports }}
+                showFlows={showFlows}
+                onShowFlows={setShowFlows}
+              />
+            </Suspense>
+          )}
         </CountryPanel>
       )}
     </div>

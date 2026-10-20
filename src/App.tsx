@@ -21,7 +21,7 @@ import { paletteFor } from './map/palette';
 import type { FocusRequest } from './map/WorldMap';
 import { CompareTray } from './compare/CompareTray';
 import { CompareView } from './compare/CompareView';
-import { compareFromUrl, toggleCompare } from './compare/compare';
+import { compareFromUrl, toggleCompare, validCompare as pickValid } from './compare/compare';
 import { ChainSection } from './panel/ChainSection';
 import { CountryPanel } from './panel/CountryPanel';
 import { MacroSnapshot } from './panel/MacroSnapshot';
@@ -33,7 +33,10 @@ import { useMediaQuery } from './useMediaQuery';
 const TradeSection = lazy(() => import('./panel/TradeSection'));
 // The map (MapLibre) is the largest module; load it in parallel with the data so the page
 // shell, search and panel code are not held up by it.
-const WorldMap = lazy(() => import('./map/WorldMap').then((m) => ({ default: m.WorldMap })));
+// The import starts as soon as this module runs, not when the map first renders (which only
+// happens once the data has arrived).
+const worldMapModule = import('./map/WorldMap');
+const WorldMap = lazy(() => worldMapModule.then((m) => ({ default: m.WorldMap })));
 const FdiSection = lazy(() => import('./panel/FdiSection'));
 
 function idFromHash(): string | null {
@@ -98,26 +101,6 @@ export function App() {
     loadAppData().then(setData, (e: Error) => setError(e.message));
   }, []);
 
-  // Keep the selection (hash) and map mode (query) in the URL so a view can be bookmarked.
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    for (const k of ['metric', 'commodity', 'measure', 'chain', 'stage', 'compare']) {
-      url.searchParams.delete(k);
-    }
-    if (compareIds.length) url.searchParams.set('compare', compareIds.join(','));
-    if (mode.kind === 'indicator') url.searchParams.set('metric', mode.key);
-    if (mode.kind === 'commodity') {
-      url.searchParams.set('commodity', mode.id);
-      url.searchParams.set('measure', measure);
-    }
-    if (mode.kind === 'chain') {
-      url.searchParams.set('chain', mode.id);
-      if (chainStage) url.searchParams.set('stage', chainStage);
-    }
-    url.hash = selectedId ? `#${selectedId}` : '';
-    if (url.href !== window.location.href) history.replaceState(null, '', url);
-  }, [selectedId, mode, measure, chainStage, compareIds]);
-
   const focusOn = useCallback((id: string) => {
     setFocus((f) => ({ id, nonce: (f?.nonce ?? 0) + 1 }));
   }, []);
@@ -133,22 +116,59 @@ export function App() {
     return () => window.removeEventListener('hashchange', onHashChange);
   }, [focusOn]);
 
+  /** Closes the panel and returns focus to the map, where countries are picked. */
+  const closePanel = useCallback(() => {
+    setSelectedId(null);
+    document.querySelector<HTMLElement>('.maplibregl-canvas')?.focus();
+  }, []);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const typing = e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement;
-      if (e.key === 'Escape' && !typing) setSelectedId(null);
+      if (e.key === 'Escape' && !typing) closePanel();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []);
+  }, [closePanel]);
 
   const countries = data?.countries.data;
   const byId = useMemo(() => new Map((countries ?? []).map((c) => [c.id, c])), [countries]);
   // Ids from a link may be unknown; only those that exist are compared.
   const validCompare = useMemo(
-    () => (byId.size ? compareIds.filter((id) => byId.has(id)) : compareIds),
+    () => (byId.size ? pickValid(compareIds, new Set(byId.keys())) : []),
     [compareIds, byId],
   );
+  const removeCompare = useCallback(
+    (id: string) => {
+      const next = validCompare.filter((x) => x !== id);
+      setCompareIds(next);
+      // An emptied comparison closes, so adding a country later does not reopen it.
+      if (next.length === 0) setComparing(false);
+    },
+    [validCompare],
+  );
+  const closeCompare = useCallback(() => setComparing(false), []);
+
+  // Keep the selection (hash) and map mode (query) in the URL so a view can be bookmarked.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    for (const k of ['metric', 'commodity', 'measure', 'chain', 'stage', 'compare']) {
+      url.searchParams.delete(k);
+    }
+    const compareParam = byId.size ? validCompare : compareIds;
+    if (compareParam.length) url.searchParams.set('compare', compareParam.join(','));
+    if (mode.kind === 'indicator') url.searchParams.set('metric', mode.key);
+    if (mode.kind === 'commodity') {
+      url.searchParams.set('commodity', mode.id);
+      url.searchParams.set('measure', measure);
+    }
+    if (mode.kind === 'chain') {
+      url.searchParams.set('chain', mode.id);
+      if (chainStage) url.searchParams.set('stage', chainStage);
+    }
+    url.hash = selectedId ? `#${selectedId}` : '';
+    if (url.href !== window.location.href) history.replaceState(null, '', url);
+  }, [selectedId, mode, measure, chainStage, compareIds, validCompare, byId]);
   const features = useMemo(() => data && toMapFeatures(data.topo, data.countries.data), [data]);
 
   const macro = useMemo(
@@ -354,7 +374,15 @@ export function App() {
 
   return (
     <div className={`app ${selected ? 'has-panel' : ''}`}>
-      <a className="skip-link" href="#country-search">
+      {/* Moves focus without touching the URL hash, which holds the selected country. */}
+      <a
+        className="skip-link"
+        href="#country-search"
+        onClick={(e) => {
+          e.preventDefault();
+          document.getElementById('country-search')?.focus();
+        }}
+      >
         Skip to country search
       </a>
       <p className="visually-hidden" aria-live="polite">
@@ -415,7 +443,7 @@ export function App() {
       <CompareTray
         ids={validCompare}
         countries={byId}
-        onRemove={(id) => setCompareIds((l) => l.filter((x) => x !== id))}
+        onRemove={removeCompare}
         onOpen={() => setComparing(true)}
       />
       {comparing && validCompare.length > 0 && data && (
@@ -423,10 +451,11 @@ export function App() {
           ids={validCompare}
           countries={byId}
           macro={macro}
+          loaded={loaded}
           resources={resources}
           currencies={data.currencies?.data}
-          onRemove={(id) => setCompareIds((l) => l.filter((x) => x !== id))}
-          onClose={() => setComparing(false)}
+          onRemove={removeCompare}
+          onClose={closeCompare}
         />
       )}
 
@@ -476,13 +505,9 @@ export function App() {
           country={selected}
           sovereign={selected.sovereign ? byId.get(selected.sovereign) : undefined}
           boundariesMeta={boundariesMeta}
-          onClose={() => {
-            setSelectedId(null);
-            // Return focus to the map, where the panel was opened from.
-            document.querySelector<HTMLElement>('.maplibregl-canvas')?.focus();
-          }}
+          onClose={closePanel}
           inCompare={validCompare.includes(selected.id)}
-          onToggleCompare={() => setCompareIds((l) => toggleCompare(l, selected.id))}
+          onToggleCompare={() => setCompareIds(toggleCompare(validCompare, selected.id))}
           onSelect={selectAndFocus}
         >
           <MacroSnapshot

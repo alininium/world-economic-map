@@ -1,15 +1,18 @@
 import { useEffect, useRef } from 'react';
 import { COMMODITIES, MEASURE_LABELS } from '../../shared/commodities';
-import { INDICATORS, type CurrencyTable } from '../../shared/indicators';
+import { INDICATORS, type CurrencyTable, type IndicatorKey } from '../../shared/indicators';
 import type { Country } from '../../shared/types';
-import { SOURCE_LABELS, type MacroIndex } from '../data/macro';
+import type { MacroIndex } from '../data/macro';
 import type { ResourceIndex } from '../data/resources';
 import { formatQuantity, formatValue } from '../format';
+import { FigureSource } from '../panel/FigureRows';
 
 interface Props {
   ids: readonly string[];
   countries: ReadonlyMap<string, Country>;
   macro: MacroIndex;
+  /** Indicators whose source is downloaded; others say so instead of "no data". */
+  loaded: ReadonlySet<IndicatorKey>;
   resources: ResourceIndex;
   currencies: CurrencyTable | undefined;
   onRemove: (id: string) => void;
@@ -21,32 +24,44 @@ export function CompareView({
   ids,
   countries,
   macro,
+  loaded,
   resources,
   currencies,
   onRemove,
   onClose,
 }: Props) {
   const dialog = useRef<HTMLDivElement>(null);
-  const opener = useRef<Element | null>(null);
-
-  // Focus the dialog on open, keep Tab inside it, close on Escape, and restore focus on close.
+  // Keep the latest onClose without re-running the open/close effect on every parent render.
+  const close = useRef(onClose);
   useEffect(() => {
-    opener.current = document.activeElement;
-    dialog.current?.focus();
+    close.current = onClose;
+  });
+  /** Where a press started, so a drag from the table onto the backdrop does not close it. */
+  const pressStart = useRef<EventTarget | null>(null);
+
+  // Once per opening: focus the dialog, keep Tab inside it, close on Escape, then restore focus.
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    const box = dialog.current!;
+    box.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.stopPropagation();
-        onClose();
+        close.current();
+        return;
       }
-      if (e.key !== 'Tab' || !dialog.current) return;
-      const focusable = dialog.current.querySelectorAll<HTMLElement>('button, a[href]');
+      if (e.key !== 'Tab') return;
+      const focusable = box.querySelectorAll<HTMLElement>('button:not(:disabled), a[href]');
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
       if (!first || !last) return;
-      if (e.shiftKey && document.activeElement === first) {
+      const active = document.activeElement;
+      // Focus on the container itself (as on open) counts as "not on a control yet".
+      const offControls = active === box || !box.contains(active);
+      if (e.shiftKey && (active === first || offControls)) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
+      } else if (!e.shiftKey && (active === last || offControls)) {
         e.preventDefault();
         first.focus();
       }
@@ -54,9 +69,11 @@ export function CompareView({
     document.addEventListener('keydown', onKey, true);
     return () => {
       document.removeEventListener('keydown', onKey, true);
-      (opener.current as HTMLElement | null)?.focus?.();
+      // The opener may be gone or disabled (the tray's Compare button); fall back to search.
+      const usable = opener?.isConnected && !(opener as HTMLButtonElement).disabled;
+      (usable ? opener : document.getElementById('country-search'))?.focus();
     };
-  }, [onClose]);
+  }, []);
 
   const cols = ids.map((id) => countries.get(id)).filter((c): c is Country => !!c);
   const resourceRows = COMMODITIES.flatMap((c) =>
@@ -68,7 +85,15 @@ export function CompareView({
   );
 
   return (
-    <div className="compare-backdrop" onClick={onClose}>
+    <div
+      className="compare-backdrop"
+      onPointerDown={(e) => {
+        pressStart.current = e.target;
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget && pressStart.current === e.currentTarget) onClose();
+      }}
+    >
       <div
         ref={dialog}
         className="compare"
@@ -76,7 +101,6 @@ export function CompareView({
         aria-modal="true"
         aria-labelledby="compare-title"
         tabIndex={-1}
-        onClick={(e) => e.stopPropagation()}
       >
         <header className="panel-header">
           <h2 id="compare-title">Compare countries</h2>
@@ -122,16 +146,13 @@ export function CompareView({
                     return (
                       <td key={c.id}>
                         {fig ? (
-                          <>
-                            <span className="figure-value">{formatValue(fig.value, def.unit)}</span>
-                            <span className="figure-source">
-                              {' '}
-                              {fig.year} · {SOURCE_LABELS[fig.source]}
-                            </span>
-                          </>
+                          <span className="figure-value">{formatValue(fig.value, def.unit)}</span>
                         ) : (
                           <span className="missing">No data</span>
                         )}
+                        <span className="figure-source compare-source">
+                          <FigureSource def={def} country={c} macro={macro} loaded={loaded} />
+                        </span>
                       </td>
                     );
                   })}
@@ -161,7 +182,7 @@ export function CompareView({
                             <span className="figure-value">
                               {formatQuantity(o.value, series.table.unit)}
                             </span>
-                            <span className="figure-source"> {o.year}</span>
+                            <span className="figure-source compare-source">{o.year}</span>
                           </>
                         ) : (
                           <span className="missing">Not listed</span>

@@ -14,9 +14,39 @@ interface Props {
   loaded: ReadonlySet<IndicatorKey>;
 }
 
+/** Year (flagged when stale) and a link to the source series, or why there is no figure. */
+export function FigureSource({
+  def,
+  country,
+  macro,
+  loaded,
+}: {
+  def: IndicatorDef;
+  country: Country;
+  macro: MacroIndex;
+  loaded: ReadonlySet<IndicatorKey>;
+}) {
+  const fig = macro[def.key][country.id];
+  if (!fig) return <>{loaded.has(def.key) ? 'Not reported' : 'Source not loaded'}</>;
+  const stale = new Date().getFullYear() - fig.year > STALE_YEARS;
+  return (
+    <>
+      <span
+        className={stale ? 'stale' : undefined}
+        title={stale ? 'More than four years old' : undefined}
+      >
+        {fig.year}
+      </span>{' '}
+      ·{' '}
+      <a href={sourceLink(fig.source, fig.code, country)} target="_blank" rel="noreferrer">
+        {SOURCE_LABELS[fig.source]}
+      </a>
+    </>
+  );
+}
+
 /** Table rows for indicators: value, year (flagged when stale) and a link to the source series. */
 export function FigureRows({ defs, country, macro, loaded }: Props) {
-  const thisYear = new Date().getFullYear();
   return (
     <>
       {defs.map((def) => {
@@ -30,30 +60,7 @@ export function FigureRows({ defs, country, macro, loaded }: Props) {
               {fig ? formatValue(fig.value, def.unit) : <span className="missing">No data</span>}
             </td>
             <td className="figure-source">
-              {fig ? (
-                <>
-                  <span
-                    className={thisYear - fig.year > STALE_YEARS ? 'stale' : undefined}
-                    title={
-                      thisYear - fig.year > STALE_YEARS ? 'More than four years old' : undefined
-                    }
-                  >
-                    {fig.year}
-                  </span>{' '}
-                  ·{' '}
-                  <a
-                    href={sourceLink(fig.source, fig.code, country)}
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    {SOURCE_LABELS[fig.source]}
-                  </a>
-                </>
-              ) : loaded.has(def.key) ? (
-                'Not reported'
-              ) : (
-                'Source not loaded'
-              )}
+              <FigureSource def={def} country={country} macro={macro} loaded={loaded} />
             </td>
           </tr>
         );

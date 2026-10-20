@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_COMPARE, parseCompare, toggleCompare } from './compare';
+import { MAX_COMPARE, parseCompare, toggleCompare, validCompare } from './compare';
 
 describe('parseCompare', () => {
-  it('normalises, de-duplicates and caps the list', () => {
-    expect(parseCompare('fra, DEU,fra,,ita,esp,pol')).toEqual(['FRA', 'DEU', 'ITA', 'ESP']);
+  it('normalises and de-duplicates the list', () => {
+    expect(parseCompare('fra, DEU,fra,,ita')).toEqual(['FRA', 'DEU', 'ITA']);
   });
+});
 
-  it('drops unknown ids when the valid set is given', () => {
-    expect(parseCompare('FRA,XXX', new Set(['FRA']))).toEqual(['FRA']);
+describe('validCompare', () => {
+  it('drops unknown ids before capping, so they cannot crowd out real ones', () => {
+    const ids = parseCompare('XXX,YYY,ZZZ,WWW,FRA,DEU,ITA,ESP,POL');
+    expect(validCompare(ids, new Set(['FRA', 'DEU', 'ITA', 'ESP', 'POL']))).toEqual([
+      'FRA',
+      'DEU',
+      'ITA',
+      'ESP',
+    ]);
   });
 });
 

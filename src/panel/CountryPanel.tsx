@@ -1,4 +1,4 @@
-import type { ReactNode, Ref } from 'react';
+import { useEffect, useRef, type ReactNode, type Ref } from 'react';
 import { STATUS_LABELS } from '../../shared/status';
 import type { Country, DatasetMeta } from '../../shared/types';
 
@@ -11,6 +11,8 @@ interface Props {
   boundariesMeta: DatasetMeta;
   onClose: () => void;
   onSelect: (id: string) => void;
+  inCompare: boolean;
+  onToggleCompare: () => void;
 }
 
 const STATUS_NOTES: Partial<Record<Country['status'], string>> = {
@@ -29,20 +31,41 @@ export function CountryPanel({
   boundariesMeta,
   onClose,
   onSelect,
+  inCompare,
+  onToggleCompare,
 }: Props) {
   const note = STATUS_NOTES[country.status];
+  // Move focus to the panel when it opens (the panel is keyed by country), so keyboard and
+  // screen-reader users land on the new content.
+  const title = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    title.current?.focus({ preventScroll: true });
+  }, []);
   return (
     <aside ref={ref} className="panel" aria-labelledby="panel-title">
       <header className="panel-header">
         <div>
-          <h2 id="panel-title">{country.name}</h2>
+          <h2 id="panel-title" ref={title} tabIndex={-1}>
+            {country.name}
+          </h2>
           {country.formalName && country.formalName !== country.name && (
             <p className="muted">{country.formalName}</p>
           )}
         </div>
-        <button type="button" className="icon-button" onClick={onClose} aria-label="Close panel">
-          ×
-        </button>
+        <div className="panel-actions">
+          <button
+            type="button"
+            className="pill"
+            aria-pressed={inCompare}
+            onClick={onToggleCompare}
+            title={inCompare ? 'Remove from comparison' : 'Add to comparison'}
+          >
+            {inCompare ? '✓ Comparing' : '+ Compare'}
+          </button>
+          <button type="button" className="icon-button" onClick={onClose} aria-label="Close panel">
+            ×
+          </button>
+        </div>
       </header>
 
       <section>

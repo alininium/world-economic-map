@@ -31,6 +31,7 @@ export function CountrySearch({ countries, onPick }: Props) {
     <div className="search">
       <input
         ref={inputRef}
+        id="country-search"
         type="search"
         placeholder="Search for a country…"
         aria-label="Search for a country"

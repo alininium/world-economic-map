@@ -13,7 +13,7 @@ JSON files under `data/`, and the browser app reads only those files.
 >   production chains, trade charts and trade-flow lines
 > - a comparison mode
 >
-> Trade data still needs a Comtrade API key; see [Data status](#data-status). See the
+> Every data source below is loaded with real figures; see [Data status](#data-status). See the
 > [Roadmap](#roadmap) for what is built.
 
 ## Running it
@@ -321,15 +321,17 @@ Included now, all fetched from the sources below by the **Refresh data** workflo
 - USGS minerals (Mineral Commodity Summaries 2025, data year 2024)
 - FAOSTAT crop production (data year 2024)
 - the curated production-chain notes
-
-Not yet included: **goods trade** (UN Comtrade). It needs a free API key: add a
-`COMTRADE_API_KEY` repository secret and run the workflow with the `trade` step. Until then, the
-app says trade data is not loaded, and no placeholder figures are shown.
+- UN Comtrade goods trade: 169 reporters, latest year within three years (mostly 2025), plus
+  trade for each tracked commodity and production-chain stage
 
 Known data caveats:
 
 - USGS lists US cobalt under a different series label ("Mine production, estimated") from every
   other country, so it is left out of the cobalt table (300 t of 290,000 t in 2024).
+- Comtrade has no recent report from Russia (none since 2022), and Taiwan is not a Comtrade
+  reporter, so both are missing from trade views. Hong Kong's figures include re-exports.
+- The United States reports a large "Commodities not specified" line (HS 9999), which appears
+  among its top export products as published.
 
 ## Data sources
 

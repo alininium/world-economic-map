@@ -95,8 +95,16 @@ export async function loadTradeProfile(
 
 let historyRequest: Promise<Dataset<HistoryTable> | null> | null = null;
 
-/** Yearly World Bank series (FDI), fetched once on first use; null until the pipeline made it. */
+/**
+ * Yearly World Bank series (FDI), fetched once on first use. Resolves null when the pipeline has
+ * not produced the file; rejects on network or server errors, and a failed request is not
+ * cached, so the next call retries.
+ */
 export function loadHistory(manifest: Manifest): Promise<Dataset<HistoryTable> | null> {
-  historyRequest ??= getListed<HistoryTable>(manifest, WB_HISTORY_PATH);
+  if (!metaFor(manifest, WB_HISTORY_PATH)) return Promise.resolve(null);
+  historyRequest ??= getJson<Dataset<HistoryTable>>(WB_HISTORY_PATH).catch((err: unknown) => {
+    historyRequest = null;
+    throw err;
+  });
   return historyRequest;
 }

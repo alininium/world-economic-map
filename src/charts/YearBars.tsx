@@ -1,10 +1,5 @@
-import { BarChart as EBar } from 'echarts/charts';
-import { GridComponent, LegendComponent, TooltipComponent } from 'echarts/components';
-import * as echarts from 'echarts/core';
-import { SVGRenderer } from 'echarts/renderers';
 import { useEffect, useRef } from 'react';
-
-echarts.use([EBar, GridComponent, LegendComponent, TooltipComponent, SVGRenderer]);
+import { echarts, token, tooltipTheme, useEChart } from './echarts';
 
 export interface YearSeries {
   name: string;
@@ -20,22 +15,11 @@ interface Props {
   ariaLabel: string;
 }
 
-const token = (name: string) =>
-  getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
 /** Grouped yearly bars on one value axis, with a legend and an axis tooltip. */
 export function YearBars({ series, format, darkMode, ariaLabel }: Props) {
   const el = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const chart = echarts.init(el.current!, undefined, { renderer: 'svg' });
-    const ro = new ResizeObserver(() => chart.resize());
-    ro.observe(el.current!);
-    return () => {
-      ro.disconnect();
-      chart.dispose();
-    };
-  }, []);
+  useEChart(el);
 
   useEffect(() => {
     const chart = echarts.getInstanceByDom(el.current!);
@@ -66,11 +50,8 @@ export function YearBars({ series, format, darkMode, ariaLabel }: Props) {
           splitLine: { lineStyle: { color: token('--border'), opacity: 0.6 } },
         },
         tooltip: {
+          ...tooltipTheme(),
           trigger: 'axis',
-          confine: true,
-          backgroundColor: token('--bg'),
-          borderColor: token('--border'),
-          textStyle: { color: token('--fg'), fontSize: 12 },
           valueFormatter: (v: unknown) => (typeof v === 'number' ? format(v) : 'no data'),
         },
         series: series.map((s) => ({

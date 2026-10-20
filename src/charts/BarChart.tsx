@@ -1,10 +1,5 @@
-import { BarChart as EBar } from 'echarts/charts';
-import { GridComponent, TooltipComponent } from 'echarts/components';
-import * as echarts from 'echarts/core';
-import { SVGRenderer } from 'echarts/renderers';
 import { useEffect, useRef } from 'react';
-
-echarts.use([EBar, GridComponent, TooltipComponent, SVGRenderer]);
+import { echarts, token, tooltipTheme, useEChart } from './echarts';
 
 export interface BarItem {
   label: string;
@@ -25,29 +20,17 @@ interface Props {
 
 const ROW = 26;
 
-const token = (name: string) =>
-  getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-
 /** Horizontal bars, largest first, with a direct label per bar and a tooltip with the full name. */
 export function BarChart({ items, color, darkMode, ariaLabel }: Props) {
   const el = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const chart = echarts.init(el.current!, undefined, { renderer: 'svg' });
-    const ro = new ResizeObserver(() => chart.resize());
-    ro.observe(el.current!);
-    return () => {
-      ro.disconnect();
-      chart.dispose();
-    };
-  }, []);
+  useEChart(el);
 
   useEffect(() => {
     const chart = echarts.getInstanceByDom(el.current!);
     if (!chart) return;
     const fg = token('--fg');
     const muted = token('--muted');
-    const surface = token('--bg');
     const rows = [...items].reverse(); // ECharts draws categories bottom-up
     chart.setOption(
       {
@@ -62,11 +45,8 @@ export function BarChart({ items, color, darkMode, ariaLabel }: Props) {
           axisLabel: { color: muted, width: 150, overflow: 'truncate', fontSize: 11 },
         },
         tooltip: {
+          ...tooltipTheme(),
           trigger: 'item',
-          confine: true,
-          backgroundColor: surface,
-          borderColor: token('--border'),
-          textStyle: { color: fg, fontSize: 12 },
           formatter: (p: { dataIndex: number }) => rows[p.dataIndex]?.detail ?? '',
         },
         series: [

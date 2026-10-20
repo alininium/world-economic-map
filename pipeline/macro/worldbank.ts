@@ -13,6 +13,8 @@ import { historyByCountry, latestByCountry, type RawPoint } from './observations
 const API = 'https://api.worldbank.org/v2';
 /** How far back to look for a country's latest value. */
 const YEARS_BACK = 10;
+/** Calendar years kept in the yearly history (this year included, usually still empty). */
+const HISTORY_YEARS = 10;
 const PER_PAGE = 1000;
 
 interface WbRow {
@@ -77,8 +79,9 @@ export async function runWorldBank(): Promise<void> {
     console.log(`  ${code}`);
     const res = await fetchIndicator(code, to - YEARS_BACK, to);
     table[code] = latestByCountry(res.points, ids, to);
-    if (historyCodes.has(code))
-      history[code] = historyByCountry(res.points, ids, to - YEARS_BACK, to);
+    if (historyCodes.has(code)) {
+      history[code] = historyByCountry(res.points, ids, to - HISTORY_YEARS + 1, to);
+    }
     if (res.lastUpdated) updated.push(`${code} ${res.lastUpdated}`);
     if (res.retrievedAt > retrievedAt) retrievedAt = res.retrievedAt;
   }
@@ -94,9 +97,20 @@ export async function runWorldBank(): Promise<void> {
     notes: `Latest available year per country within ${YEARS_BACK} years. Source last updated: ${updated.join('; ')}.`,
   };
   await writeDataset('macro/worldbank.json', meta, table);
+  const historyYears = Object.values(history).flatMap((series) =>
+    Object.values(series).flatMap((list) => list.map((o) => o.year)),
+  );
   await writeDataset(
     WB_HISTORY_PATH,
-    { ...meta, id: 'worldbank-history', title: 'World Bank yearly series (FDI)' },
+    {
+      ...meta,
+      id: 'worldbank-history',
+      title: 'World Bank yearly series (FDI)',
+      dataYear: historyYears.length
+        ? `${Math.min(...historyYears)}–${Math.max(...historyYears)}`
+        : null,
+      notes: `Every reported year from ${to - HISTORY_YEARS + 1} to ${to} for: ${[...historyCodes].join(', ')}. Missing years are omitted, not zero.`,
+    },
     history,
   );
 }

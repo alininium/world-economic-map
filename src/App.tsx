@@ -350,7 +350,8 @@ export function App() {
               loaded={loaded}
               manifest={data.manifest}
               darkMode={darkMode}
-              colors={{ inflows: palette.flowExports, outflows: palette.flowImports }}
+              inflowColor={palette.flowExports}
+              outflowColor={palette.flowImports}
             />
           </Suspense>
           <ResourcesSection

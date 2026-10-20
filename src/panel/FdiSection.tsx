@@ -8,8 +8,9 @@ import {
 import type { Country, Dataset, Manifest } from '../../shared/types';
 import { YearBars, type YearSeries } from '../charts/YearBars';
 import { loadHistory } from '../data/load';
-import { SOURCE_LABELS, sourceLink, type MacroIndex } from '../data/macro';
+import type { MacroIndex } from '../data/macro';
 import { formatBreak, formatValue } from '../format';
+import { FigureRows } from './FigureRows';
 
 interface Props {
   country: Country;
@@ -18,36 +19,53 @@ interface Props {
   loaded: ReadonlySet<IndicatorKey>;
   manifest: Manifest;
   darkMode: boolean;
-  colors: { inflows: string; outflows: string };
+  inflowColor: string;
+  outflowColor: string;
 }
 
-const FDI = INDICATORS.filter((d) => d.section === 'fdi');
+const FDI_DEFS = INDICATORS.filter((d) => d.section === 'fdi');
 const IN = INDICATOR_BY_KEY.fdiInflows.series[0]!.code;
 const OUT = INDICATOR_BY_KEY.fdiOutflows.series[0]!.code;
+const formatUsdAxis = (v: number) => formatBreak(v, 'usd');
 
-/** Foreign direct investment flows: latest figures and a ten-year history. Lazy-loaded with ECharts. */
-export default function FdiSection({ country, macro, loaded, manifest, darkMode, colors }: Props) {
-  const [history, setHistory] = useState<Dataset<HistoryTable> | null | undefined>(undefined);
+type HistoryState =
+  | { status: 'loading' }
+  | { status: 'ready'; data: Dataset<HistoryTable> | null }
+  | { status: 'error'; message: string };
+
+/** Foreign direct investment flows: latest figures and a yearly history. Lazy-loaded with ECharts. */
+export default function FdiSection({
+  country,
+  macro,
+  loaded,
+  manifest,
+  darkMode,
+  inflowColor,
+  outflowColor,
+}: Props) {
+  const [history, setHistory] = useState<HistoryState>({ status: 'loading' });
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let cancelled = false;
     loadHistory(manifest).then(
-      (h) => !cancelled && setHistory(h),
-      () => !cancelled && setHistory(null),
+      (data) => !cancelled && setHistory({ status: 'ready', data }),
+      (err: Error) => !cancelled && setHistory({ status: 'error', message: err.message }),
     );
     return () => {
       cancelled = true;
     };
-  }, [manifest]);
+  }, [manifest, attempt]);
 
+  const data = history.status === 'ready' ? history.data : null;
   const series: YearSeries[] = useMemo(() => {
     const pick = (code: string) =>
-      new Map((history?.data[code]?.[country.id] ?? []).map((o) => [o.year, o.value]));
+      new Map((data?.data[code]?.[country.id] ?? []).map((o) => [o.year, o.value]));
     return [
-      { name: 'Inflows', color: colors.inflows, values: pick(IN) },
-      { name: 'Outflows', color: colors.outflows, values: pick(OUT) },
+      { name: 'Inflows', color: inflowColor, values: pick(IN) },
+      { name: 'Outflows', color: outflowColor, values: pick(OUT) },
     ];
-  }, [history, country.id, colors]);
-  const hasHistory = series.some((s) => s.values.size > 0);
+  }, [data, country.id, inflowColor, outflowColor]);
+  const years = series.flatMap((s) => [...s.values.keys()]);
   const inflow = macro.fdiInflows[country.id];
   const outflow = macro.fdiOutflows[country.id];
 
@@ -56,38 +74,7 @@ export default function FdiSection({ country, macro, loaded, manifest, darkMode,
       <h3>Foreign investment</h3>
       <table className="figures">
         <tbody>
-          {FDI.map((def) => {
-            const fig = macro[def.key][country.id];
-            return (
-              <tr key={def.key}>
-                <th scope="row" title={def.description}>
-                  {def.label}
-                </th>
-                <td className="figure-value">
-                  {fig ? (
-                    formatValue(fig.value, def.unit)
-                  ) : (
-                    <span className="missing">No data</span>
-                  )}
-                </td>
-                <td className="figure-source">
-                  {!fig && (loaded.has(def.key) ? 'Not reported' : 'Source not loaded')}
-                  {fig && (
-                    <>
-                      {fig.year} ·{' '}
-                      <a
-                        href={sourceLink(fig.source, fig.code, country)}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {SOURCE_LABELS[fig.source]}
-                      </a>
-                    </>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
+          <FigureRows defs={FDI_DEFS} country={country} macro={macro} loaded={loaded} />
           {inflow && outflow && inflow.year === outflow.year && (
             <tr>
               <th scope="row" title="Inflows minus outflows, same year">
@@ -99,12 +86,28 @@ export default function FdiSection({ country, macro, loaded, manifest, darkMode,
           )}
         </tbody>
       </table>
-      {hasHistory && (
+
+      {history.status === 'error' && (
+        <p className="missing">
+          Could not load the FDI history ({history.message}).{' '}
+          <button type="button" className="link" onClick={() => setAttempt((n) => n + 1)}>
+            Retry
+          </button>
+        </p>
+      )}
+      {history.status === 'ready' && !data && (
+        <p className="missing">
+          FDI history has not been downloaded yet. Run <code>npm run data:refresh worldbank</code>.
+        </p>
+      )}
+      {years.length > 0 && (
         <>
-          <h4>Last ten years (World Bank, balance of payments)</h4>
+          <h4>
+            {Math.min(...years)}–{Math.max(...years)} (World Bank, balance of payments)
+          </h4>
           <YearBars
             series={series}
-            format={(v) => formatBreak(v, 'usd')}
+            format={formatUsdAxis}
             darkMode={darkMode}
             ariaLabel={`FDI inflows and outflows of ${country.name} by year`}
           />

@@ -173,8 +173,8 @@ export const INDICATORS: readonly IndicatorDef[] = [
   },
   {
     key: 'fdiInflowsPct',
-    label: 'FDI net inflows (% of GDP)',
-    unit: 'percent',
+    label: 'FDI net inflows / GDP',
+    unit: 'percent_gdp',
     scaleKind: 'diverging',
     choropleth: true,
     series: [wb('BX.KLT.DINV.WD.GD.ZS')],
@@ -195,8 +195,8 @@ export const INDICATORS: readonly IndicatorDef[] = [
   },
   {
     key: 'fdiOutflowsPct',
-    label: 'FDI net outflows (% of GDP)',
-    unit: 'percent',
+    label: 'FDI net outflows / GDP',
+    unit: 'percent_gdp',
     scaleKind: 'diverging',
     choropleth: true,
     series: [wb('BM.KLT.DINV.WD.GD.ZS')],

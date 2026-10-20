@@ -4,6 +4,8 @@ import type { Country, DatasetMeta } from '../../shared/types';
 
 interface Props {
   ref?: Ref<HTMLElement>;
+  /** Shown first, right under the name. */
+  brief?: ReactNode;
   /** Data sections (macro, trade, …) rendered below the facts. */
   children?: ReactNode;
   country: Country;
@@ -24,6 +26,7 @@ const STATUS_NOTES: Partial<Record<Country['status'], string>> = {
 };
 
 export function CountryPanel({
+  brief,
   children,
   ref,
   country,
@@ -67,6 +70,8 @@ export function CountryPanel({
           </button>
         </div>
       </header>
+
+      {brief}
 
       <section>
         <dl className="facts">

@@ -3,6 +3,7 @@
  * With no steps every step runs in order. `--cached` reuses downloads in pipeline/.cache.
  * A failing step is reported and the others still run; the exit code is non-zero if any failed.
  */
+import { runBriefs } from './briefs/briefs';
 import { runGeo } from './geo/build';
 import { runChainNotes } from './chains/notes';
 import { loadEnv } from './lib/env';
@@ -30,6 +31,7 @@ const STEPS: Record<string, Step> = {
   usgs: { run: runUsgs },
   fao: { run: runFao },
   chains: { run: runChainNotes },
+  briefs: { run: runBriefs },
   trade: { run: runComtrade, needs: 'COMTRADE_API_KEY' },
 };
 

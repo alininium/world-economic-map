@@ -4,3 +4,4 @@ pipeline/.cache/
 .env
 *.log
 .DS_Store
+data/**/*.new/

@@ -13,7 +13,8 @@
     "format:check": "prettier --check .",
     "typecheck": "tsc -b",
     "data:refresh": "tsx pipeline/refresh.ts",
-    "data:geo": "tsx pipeline/refresh.ts geo"
+    "data:geo": "tsx pipeline/refresh.ts geo",
+    "data:check": "tsx pipeline/check.ts"
   },
   "dependencies": {
     "echarts": "^6.1.0",

@@ -35,6 +35,7 @@ Other scripts:
 | `npm run lint`         | ESLint                                            |
 | `npm run format`       | Prettier (`format:check` verifies only)           |
 | `npm run data:refresh` | Re-download and rebuild every dataset in `data/`  |
+| `npm run data:check`   | Sanity-check every dataset in the manifest        |
 
 ## Refreshing data
 
@@ -53,6 +54,23 @@ Each step downloads its sources, keeps the raw responses in `pipeline/.cache/` (
 cleans and normalizes them, and writes files to `data/`. Requests to the same host are spaced
 at least one second apart. Rate limiting (429), server errors and network failures are retried
 with exponential backoff; other HTTP errors fail at once.
+
+### Refreshing on GitHub
+
+The **Refresh data** workflow (`.github/workflows/refresh-data.yml`) runs the same pipeline on a
+GitHub runner and opens a pull request with the regenerated `data/`. Use it when your own
+network can't reach a source.
+
+1. Start it from the Actions tab: Refresh data → Run workflow. Optionally name the steps, e.g.
+   `macro resources`.
+2. To include trade, add a `COMTRADE_API_KEY` repository secret.
+3. The run checks the new data (`data:check`), lint, tests and build before publishing. The
+   publish job, which holds the write token, runs no npm code. Because the PR is opened with the
+   workflow token, the regular CI does not start on it automatically. The same checks have
+   already passed in the run.
+4. For the pull request to open automatically, enable _Settings → Actions → General → Allow
+   GitHub Actions to create and approve pull requests_. Otherwise the branch
+   `data-refresh/<run id>` is pushed and you can open the PR yourself.
 
 A full refresh (no step named) skips steps whose API key isn't set and says so. Naming such a
 step explicitly without its key is an error.
@@ -330,6 +348,7 @@ MVP:
 5. ✅ FDI flows (stock and partners pending, see above)
 6. ✅ Production chains (cited notes + trade-derived roles)
 7. ✅ Comparison mode, accessibility, performance
+8. ✅ README, tests, and a GitHub workflow to refresh data (no deployment: local use)
 
 ## Known gaps and limitations
 

@@ -1,3 +1,4 @@
+import { CHAIN_FILES, CHAINS, type ChainTradeTable, type StageTrade } from '../../shared/chains';
 import { COMMODITIES, RESOURCE_FILES, type ResourceTable } from '../../shared/commodities';
 import type { SeriesTable } from '../../shared/indicators';
 import {
@@ -138,9 +139,41 @@ export function byReporter(rows: readonly ComtradeRow[]): Map<number, ComtradeRo
 }
 
 /**
- * Exports and imports per strategic commodity: the commodity's HS codes are summed per
- * reporter, at each reporter's latest year with data for that commodity and flow.
+ * Sums a set of HS codes per reporter and flow (partner World), keeping each reporter's latest
+ * year with data for that flow.
  */
+export function tradeByCodes(
+  rows: readonly ComtradeRow[],
+  codes: readonly string[],
+  reporterIds: ReadonlyMap<number, string>,
+): StageTrade {
+  const wanted = new Set(codes);
+  const out: StageTrade = { exports: {}, imports: {} };
+  for (const [flow, key] of [
+    ['X', 'exports'],
+    ['M', 'imports'],
+  ] as const) {
+    // reporter id → year → summed value
+    const sums = new Map<string, Map<number, number>>();
+    for (const r of rows) {
+      if (r.flowCode !== flow || r.partnerCode !== 0 || !wanted.has(r.cmdCode) || !r.primaryValue)
+        continue;
+      const id = reporterIds.get(r.reporterCode);
+      if (!id) continue;
+      const byYear = sums.get(id) ?? new Map<number, number>();
+      const y = Number(r.period);
+      byYear.set(y, (byYear.get(y) ?? 0) + r.primaryValue);
+      sums.set(id, byYear);
+    }
+    for (const [id, byYear] of sums) {
+      const year = Math.max(...byYear.keys());
+      out[key][id] = { value: byYear.get(year)!, year };
+    }
+  }
+  return out;
+}
+
+/** Exports and imports per strategic commodity, in the resource-table shape. */
 export function commodityTrade(
   rows: readonly ComtradeRow[],
   reporterIds: ReadonlyMap<number, string>,
@@ -148,33 +181,26 @@ export function commodityTrade(
   const table: ResourceTable = {};
   for (const c of COMMODITIES) {
     if (!c.hs.length) continue;
-    const codes = new Set(c.hs);
-    for (const [flow, measure] of [
-      ['X', 'exports'],
-      ['M', 'imports'],
-    ] as const) {
-      // reporter id → year → summed value
-      const sums = new Map<string, Map<number, number>>();
-      for (const r of rows) {
-        if (r.flowCode !== flow || r.partnerCode !== 0 || !codes.has(r.cmdCode) || !r.primaryValue)
-          continue;
-        const id = reporterIds.get(r.reporterCode);
-        if (!id) continue;
-        const byYear = sums.get(id) ?? new Map<number, number>();
-        const y = Number(r.period);
-        byYear.set(y, (byYear.get(y) ?? 0) + r.primaryValue);
-        sums.set(id, byYear);
-      }
-      const values: Record<string, { value: number; year: number }> = {};
-      for (const [id, byYear] of sums) {
-        const year = Math.max(...byYear.keys());
-        values[id] = { value: byYear.get(year)!, year };
-      }
-      (table[c.id] ??= {})[measure] = {
-        unit: 'US dollars',
-        values,
-        note: `UN Comtrade, ${c.hsLabel}; as reported by each country.`,
-      };
+    const t = tradeByCodes(rows, c.hs, reporterIds);
+    const note = `UN Comtrade, ${c.hsLabel}; as reported by each country.`;
+    table[c.id] = {
+      exports: { unit: 'US dollars', values: t.exports, note },
+      imports: { unit: 'US dollars', values: t.imports, note },
+    };
+  }
+  return table;
+}
+
+/** Exports and imports per production-chain stage; stages without HS codes are left out. */
+export function chainTrade(
+  rows: readonly ComtradeRow[],
+  reporterIds: ReadonlyMap<number, string>,
+): ChainTradeTable {
+  const table: ChainTradeTable = {};
+  for (const chain of CHAINS) {
+    for (const stage of chain.stages) {
+      if (!stage.hs.length) continue;
+      (table[chain.id] ??= {})[stage.id] = tradeByCodes(rows, stage.hs, reporterIds);
     }
   }
   return table;
@@ -303,7 +329,12 @@ export async function runComtrade(): Promise<void> {
   }
 
   // HS4 codes are already in the AG4 product rows (partner World); only HS6 codes need a query.
-  const hs6 = [...new Set(COMMODITIES.flatMap((c) => c.hs))].filter((h) => h.length === 6);
+  const hs6 = [
+    ...new Set([
+      ...COMMODITIES.flatMap((c) => c.hs),
+      ...CHAINS.flatMap((c) => c.stages.flatMap((st) => st.hs)),
+    ]),
+  ].filter((h) => h.length === 6);
   const commodityRows: ComtradeRow[] = productRows.filter((r) => r.partnerCode === 0);
   for (const batch of hs6.length ? chunk(codes, BATCH_PARTNERS) : []) {
     console.log(`  commodities: reporters ${batch.join(',')}`);
@@ -384,6 +415,17 @@ export async function runComtrade(): Promise<void> {
         'Exports and imports of each strategic commodity with the world, summing its HS codes (see shared/commodities.ts). Reporter-declared values in US dollars; latest year within 3 years per reporter and commodity. No world total: not every country reports.',
     },
     commodityTable,
+  );
+  await writeDataset(
+    CHAIN_FILES.trade,
+    {
+      ...meta,
+      id: 'comtrade-chains',
+      title: 'Production-chain trade by stage',
+      notes:
+        'Exports and imports with the world of the HS codes standing for each production-chain stage (see shared/chains.ts). Reporter-declared values in US dollars; latest year within 3 years per reporter, stage and flow.',
+    },
+    chainTrade(commodityRows, reporterIds),
   );
   await recordInManifest('trade/by-country/', {
     ...meta,

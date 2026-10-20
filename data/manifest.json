@@ -2,6 +2,19 @@
   "generatedAt": "2026-10-20",
   "datasets": [
     {
+      "path": "chains/notes.json",
+      "meta": {
+        "id": "chain-notes",
+        "title": "Production-chain notes",
+        "source": "Curated from peer-reviewed research and reports; each note cites its sources",
+        "sourceUrl": "https://github.com/alininium/world-economic-map/blob/main/pipeline/chains/notes.source.json",
+        "license": "Notes: project text; cited works belong to their authors",
+        "retrievedAt": "2026-10-20",
+        "dataYear": null,
+        "notes": "24 notes from 22 sources."
+      }
+    },
+    {
       "path": "countries.json",
       "meta": {
         "source": "Natural Earth 1:50m Admin 0 – Countries (v5.1.2); territory policy in pipeline/geo/territories.ts",

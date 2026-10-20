@@ -5,9 +5,9 @@ macro indicators, trade, strategic resources, foreign investment and production 
 It is a static site: a data pipeline downloads and normalizes public datasets into versioned
 JSON files under `data/`, and the browser app reads only those files.
 
-> **Status:** milestones 1–5: a clickable world map with search, a choropleth with legend, a
-> commodity view, and a country panel with a macro snapshot, foreign investment, strategic
-> resources, trade charts and trade-flow lines. See the [Roadmap](#roadmap) and
+> **Status:** milestones 1–6: a clickable world map with search, a choropleth with legend,
+> commodity and production-chain views, and a country panel with a macro snapshot, foreign
+> investment, strategic resources, production chains, trade charts and trade-flow lines. See the [Roadmap](#roadmap) and
 > [Data status](#data-status).
 
 ## Running it
@@ -39,6 +39,7 @@ npm run data:refresh geo # one step
 npm run data:refresh macro        # World Bank, IMF and currencies
 npm run data:refresh trade        # UN Comtrade (needs COMTRADE_API_KEY)
 npm run data:refresh resources    # energy, USGS minerals, FAOSTAT crops
+npm run data:refresh chains       # validate and publish the curated chain notes
 npm run data:refresh -- --cached  # reuse earlier downloads from pipeline/.cache/
 ```
 
@@ -217,6 +218,37 @@ records where every measure comes from:
 - **FAOSTAT:** the step streams the bulk QCL archive (`FAOSTAT_QCL_URL` overrides the URL) and
   joins areas by M49 code. "China, mainland" maps to China; Taiwan is separate.
 
+## Production chains
+
+Five chains are defined in `shared/chains.ts`: semiconductors, batteries and EVs, steel,
+pharmaceuticals, and grain and fertiliser. Each is split into upstream, processing and
+downstream stages. Following the agreed hybrid approach, each stage has two kinds of evidence:
+
+1. **Cited notes on key players** (`pipeline/chains/notes.source.json`): short statements about
+   named countries.
+   - Every statement restates what a cited source says, and nothing more. Figures carry the
+     year the source gives.
+   - The sources are 22 peer-reviewed papers and reports, found through the Consensus academic
+     search engine.
+   - The `chains` step rejects any note without a source, or with an unknown chain, stage,
+     country or source key.
+2. **Trade-derived roles for every country**: the trade step sums the HS codes that stand for
+   each stage (e.g. 8542 for integrated circuits, 850760 for lithium-ion batteries) and computes
+   each country's net exports.
+
+Choosing a chain in the map selector opens a card with the stages, the cited key players and,
+with trade data, the largest net exporters and importers. The map then shows net trade on a
+red/blue diverging scale, or, without trade data, highlights the countries the notes name. The
+country panel lists the country's notes and its net position in each stage.
+
+**Trade-off of this approach:**
+
+- **Notes:** reliable but selective. They cover the players the literature discusses, and some
+  describe earlier years.
+- **Trade:** covers everyone, but HS codes are proxies. Active pharmaceutical ingredients have
+  no code of their own, re-exports inflate trading hubs, and design and IP leave no customs
+  trace at all (the semiconductor "Design, IP and tools" stage has notes only).
+
 ## Data status
 
 Included now: boundaries, currencies, and fossil-fuel production (`data/resources/energy.json`,
@@ -254,7 +286,7 @@ MVP:
 3. ✅ Trade: top products and partners, charts, trade-flow lines
 4. ✅ Strategic resources and the commodity view
 5. ✅ FDI flows (stock and partners pending, see above)
-6. Production chains (hybrid of trade-derived roles and curated, cited notes)
+6. ✅ Production chains (cited notes + trade-derived roles)
 7. Comparison mode, polish, accessibility, performance
 
 ## Known gaps and limitations

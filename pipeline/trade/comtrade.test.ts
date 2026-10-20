@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildProfile,
+  chainTrade,
   byReporter,
   hhi,
   hsNames,
@@ -173,5 +174,26 @@ describe('byReporter', () => {
     ]);
     expect(groups.get(1)).toHaveLength(2);
     expect(groups.get(2)).toHaveLength(1);
+  });
+});
+
+describe('chainTrade', () => {
+  it('sums each stage’s HS codes per reporter and skips stages without codes', () => {
+    const t = chainTrade(
+      [
+        row({ cmdCode: '8542', primaryValue: 50, reporterCode: 410 }),
+        row({ cmdCode: '8542', primaryValue: 30, flowCode: 'M', reporterCode: 156 }),
+        row({ cmdCode: '8471', primaryValue: 10, reporterCode: 156 }),
+        row({ cmdCode: '8517', primaryValue: 5, reporterCode: 156 }),
+      ],
+      new Map([
+        [410, 'KOR'],
+        [156, 'CHN'],
+      ]),
+    );
+    expect(t.semiconductors?.chips?.exports).toEqual({ KOR: { value: 50, year: 2024 } });
+    expect(t.semiconductors?.chips?.imports).toEqual({ CHN: { value: 30, year: 2024 } });
+    expect(t.semiconductors?.devices?.exports).toEqual({ CHN: { value: 15, year: 2024 } });
+    expect(t.semiconductors?.design).toBeUndefined();
   });
 });

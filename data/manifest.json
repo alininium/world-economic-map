@@ -52,6 +52,32 @@
       }
     },
     {
+      "path": "macro/worldbank-history.json",
+      "meta": {
+        "id": "worldbank-history",
+        "title": "World Bank yearly series (FDI)",
+        "source": "World Bank, World Development Indicators (API v2)",
+        "sourceUrl": "https://data.worldbank.org/",
+        "license": "CC BY 4.0",
+        "retrievedAt": "2026-10-20",
+        "dataYear": "2017–2025",
+        "notes": "Every reported year from 2017 to 2026 for: BX.KLT.DINV.CD.WD, BM.KLT.DINV.CD.WD. Missing years are omitted, not zero."
+      }
+    },
+    {
+      "path": "macro/worldbank.json",
+      "meta": {
+        "id": "worldbank",
+        "title": "World Bank World Development Indicators",
+        "source": "World Bank, World Development Indicators (API v2)",
+        "sourceUrl": "https://data.worldbank.org/",
+        "license": "CC BY 4.0",
+        "retrievedAt": "2026-10-20",
+        "dataYear": "2016–2025",
+        "notes": "Latest available year per country within 10 years. Source last updated: NY.GDP.MKTP.CD 2026-10-08; NY.GDP.MKTP.PP.CD 2026-10-08; NY.GDP.MKTP.KD.ZG 2026-10-08; NY.GDP.PCAP.CD 2026-10-08; NY.GDP.PCAP.PP.CD 2026-10-08; FP.CPI.TOTL.ZG 2026-10-08; SL.UEM.TOTL.ZS 2026-10-08; SP.POP.TOTL 2026-10-08; NE.RSB.GNFS.CD 2026-10-08; BX.KLT.DINV.CD.WD 2026-10-08; BX.KLT.DINV.WD.GD.ZS 2026-10-08; BM.KLT.DINV.CD.WD 2026-10-08; BM.KLT.DINV.WD.GD.ZS 2026-10-08."
+      }
+    },
+    {
       "path": "resources/energy.json",
       "meta": {
         "id": "energy",
@@ -62,6 +88,19 @@
         "retrievedAt": "2026-10-20",
         "dataYear": "2024",
         "notes": "Oil, gas and coal production in terawatt-hours of primary energy."
+      }
+    },
+    {
+      "path": "resources/usgs.json",
+      "meta": {
+        "id": "usgs",
+        "title": "Mineral production and reserves",
+        "source": "U.S. Geological Survey, Mineral Commodity Summaries data release",
+        "sourceUrl": "https://doi.org/10.5066/P13XCP3R",
+        "license": "Public domain (U.S. Government work)",
+        "retrievedAt": "2026-10-20",
+        "dataYear": "2024",
+        "notes": "Mine and refinery production and reserves as published, in each commodity's USGS unit. Withheld (W) and unavailable values are missing."
       }
     }
   ]
